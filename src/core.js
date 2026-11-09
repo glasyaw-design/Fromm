@@ -187,7 +187,7 @@ function slotLabel(p,slot,y){
   if(slot==='craft'){if(S.craftSt===1)return y<1980?'공장 일':y<2000?'생산직':y<2030?'기술직':'로봇 정비';if(S.craftSt===2)return y<2000?'기능공':'숙련 기술자';return y<2000?'우리 공장':'기술 회사'}
   if(slot==='study'){if(a<=13)return y<1996?'국민학교':'초등학교';if(a<=19)return p.f.artsPro?ARTS[p.f.dream].school(y):p.f.voc?(y<1990?'공업고등학교':'특성화고'):'중·고교';
     if(p.f.artsPro&&p.f.dream&&!(p.f.college&&p.edu<3&&a<=26))return ARTS[p.f.dream].job(a,y);
-    if(p.f.college&&p.edu<3&&a<=26)return '대학';if(p.edu>=3)return p.f.official?'공직':'회사';if(p.edu>=2)return '사무 일';return '시험 공부'}
+    if(p.f.college&&p.edu<3&&a<=26)return '대학';if(p.f.exam)return EXAMS[p.f.exam]?EXAMS[p.f.exam].n(y)+' 준비':'시험 공부';if(p.edu>=3)return p.f.official?'공직':'회사';if(p.edu>=2)return '사무 일';return '시험 공부'}
   if(slot==='care')return y<2025?'간병 일':'돌봄 일';
   return {help:'품앗이',home:'집안일',rest:'쉼'}[slot];
 }
@@ -226,10 +226,10 @@ function incomeOf(p,slot,y){
   if(slot==='craft'){if(a<12)return 0;
     const senior=1+Math.min(.4,(p.hist.craft||0)*.018);
     return (6+t.손재주*1.1+t.몸*.4+t.끈기*.5)*persF(p,'성실')*senior*[1,1.22,1.5][S.craftSt-1]*eraMult('craft',y)*modMult('craft',y)*placeMult('craft')*half*old*base}
-  if(slot==='study'){if(a<20||(p.f.college&&p.edu<3&&a<=26))return 0;
+  if(slot==='study'){if(a<20||(p.f.college&&p.edu<3&&a<=26)||p.f.exam)return 0;
     if(p.f.artsPro&&p.f.dream){const k=ARTS[p.f.dream].tal;const peak=p.f.dream==='운동'?(a<34?1.15:.8):1;return Math.max(1.5,(t[k]*1.7+t.끈기*.4-3)*peak)*(1+Math.min(.4,(p.hist.study||0)*.015))*old*base}
     const senior=1+Math.min(.5,(p.hist.study||0)*.02);
-    if(p.edu>=3)return (11+t.글*1.5+t.끈기*.4)*senior*(p.f.official?1.3:1)*eraMult('study',y)*modMult('study',y)*placeMult('study')*old*base;
+    if(p.edu>=3)return (11+t.글*1.5+t.끈기*.4)*senior*(p.f.official?1.3:1)*(p.f.jobMul||1)*eraMult('study',y)*modMult('study',y)*placeMult('study')*old*base;
     if(p.edu>=2)return (8+t.글*.9+t.끈기*.3)*senior*eraMult('study',y)*modMult('study',y)*old*base;return 0}
   if(slot==='care')return a<18?0:(6+t.마음씨*1.0+t.끈기*.3)*persF(p,'온화')*eraMult('care',y)*modMult('care',y)*old*base;
   if(slot==='help')return a>=12?(2+t.말솜씨*.2+t.마음씨*.2)*persF(p,'사교')*base*.6:0;
@@ -547,7 +547,7 @@ function defaultAssign(){
     // 회사·공장 월급쟁이는 정년이 있다. 장사나 내 공장은 일흔까지 할 수 있다
     if(!p.f.retired&&a>=retAge(S.year)&&(p.slot==='study'&&a>=20||(p.slot==='craft'&&S.craftSt<3)||p.slot==='care')){retire(p,a+'세에 정년퇴직했다');S.newsY.push({major:true,t:p.name+' 정년퇴직 ('+a+'세)'});continue}
     if(!p.f.retired&&a>=70&&['trade','craft'].includes(p.slot)){retire(p,'일흔에 가게·공장 일에서 물러났다');S.newsY.push({major:true,t:p.name+' 은퇴 ('+a+'세)'});continue}
-    if(a>=20&&p.slot==='study'&&p.edu<2&&!(p.f.college&&a<=26)&&!p.f.examing){p.slot=bestWork(p);continue}
+    if(a>=20&&p.slot==='study'&&p.edu<2&&!(p.f.college&&a<=26)&&!p.f.examing&&!p.f.exam&&!p.f.examPick){p.slot=bestWork(p);continue}
     if(slotOK(p,p.slot)==='')continue;
     if(a<=13)p.slot='study';else if(a<=19)p.slot=p.f.mid?'study':'trade';else p.slot=bestWork(p);
   }
@@ -849,6 +849,7 @@ function simulate(years){familySync();
     const tax=.15*Math.max(0,inc-35*pb)+.12*Math.max(0,inc-80*pb);
     live+=.2*Math.max(0,inc)+tax+upkeep+.02*Math.max(0,S.money);rp.upkeep=(rp.upkeep||0)+upkeep;rp.tax=(rp.tax||0)+tax;
     if(S.tradeSt>=3)S.face+=.25;if(S.craftSt>=3)S.face+=.25;
+    for(const p of H)examYear(p,rp);
     S.money+=inc-fee-live;rp.fee+=fee;rp.live+=live;rp.incTot=(rp.incTot||0)+inc;S.lastY={y:yr,inc,out:live+fee};
     // 물가와 이자: 장롱 돈은 물가만큼 가치가 깎이고, 통장 돈은 이자가 붙는다
     const pi=inflation(yr);
@@ -991,11 +992,13 @@ function buildAgendas(){
   if(S.face>=35&&!S.flags.bongwan&&!S.flags.ourJokbo&&S.year>=1965)L.push({kind:'ourjokbo'});
   for(const p of H){const a=age(p);if(!p.inlaw&&a>=9&&a<=15&&!p.f.dreamSet){p.f.dreamSet=true;const top=Math.max(p.tal.손재주,p.tal.몸,p.tal.말솜씨);if(R()<.12+top*.035)p.f.dream=artsKindFor(p)}}
   {const ak=H.filter(p=>!p.inlaw&&p.f.dream&&age(p)>=8&&age(p)<=19&&!p.f.artsDone&&!(p.f.artsY&&S.year-p.f.artsY<2)).sort((a,b)=>b.birth-a.birth)[0];if(ak&&S.year>=1956)L.push({kind:'arts',pid:ak.id})}
+  {const ex=H.filter(p=>age(p)>=18&&age(p)<=50&&!p.f.college&&examOpts(p).length&&((p.slot==='study'&&!p.f.exam&&!p.f.job&&p.edu<3)||(p.f.exam&&(p.f.examY||0)>=EXAMS[p.f.exam].maxY)||(!p.f.exam&&!p.f.examDone&&p.tal.글>=6.5&&p.slot!=='study'&&!(p.f.jobAsk&&S.year-p.f.jobAsk<6))));
+   if(ex.length){const p=ex.sort((a,b)=>b.tal.글-a.tal.글)[0];p.f.jobAsk=S.year;L.push({kind:'exam',pid:p.id})}}
   if(S.year>=1955&&buyList().length)L.push({kind:'buy'});
   if(S.year>=1956){
     const kids=H.filter(p=>!p.inlaw&&age(p)>=7&&age(p)<=19);if(kids.length&&!(S.lastEdu&&S.year-S.lastEdu<4))L.push({kind:'tutor'});
     if(!(S.lastFeast&&S.year-S.lastFeast<5))L.push({kind:'feast'});
-    if((S.craftY>=6||H.some(p=>p.tal.손재주>=6))&&!(S.lastWork&&S.year-S.lastWork<5))L.push({kind:'workshop'});
+    {const hk=heritageKind();if(hk&&!(S.lastWork&&S.year-S.lastWork<5))L.push({kind:'workshop',hk:hk.k,mid:hk.mid})}
     if(S.year>=1960&&!(S.lastRoot&&S.year-S.lastRoot<6))L.push({kind:'roots'});
     const fr=H.filter(p=>!p.inlaw&&!p.f.freed&&!p.f.retired&&p.id!==S.repId&&freeAgeOK(p)&&(p.grudge>=2||p.desire==='자유'||p.desire==='사랑')).sort((a,b)=>b.grudge-a.grudge)[0];if(fr)L.push({kind:'free',pid:fr.id});
   }
@@ -1043,6 +1046,40 @@ function kinHouseCand(){return S.people.filter(p=>p.alive&&!p.inlaw&&p.status===
 function buyList(){const t=wealthTier();S.bought=S.bought||{};
   return BUY_ITEMS.filter(it=>S.year>=it.y[0]&&S.year<=it.y[1]&&!(it.once&&S.bought[it.id])&&!(it.cd&&S.bought[it.id]&&S.year-S.bought[it.id]<it.cd)&&(!it.need||it.need())&&t>=(it.tier||0)-1&&S.money>=buyCost(it)*.5)
    .sort((a,b)=>(b.cost?1:0)-(a.cost?1:0)||buyCost(b)-buyCost(a)).slice(0,Math.min(7,3+t))}
+/* 가업 전수: 집안 어른이 가장 잘하는 재주, 집안이 해 온 일에 따라 물려줄 것이 달라진다 */
+const HERIT={
+ craft:{tal:['손재주','끈기'],route:'craft',t:y=>y<1990?'손기술 전수':'공방',what:'손기술',big:y=>y<1990?'작은 공방을 꾸린다':'공방을 연다',small:'저녁마다 손수 가르친다',bigFx:()=>{S.craftY+=2;S.repu=clamp(S.repu+4,0,100)}},
+ trade:{tal:['셈','말솜씨','눈썰미'],route:'wealth',t:y=>'장사 비결',what:'장사 수완',big:y=>'아이들을 가게에 세워 손님 받는 법을 가르친다',small:'저녁 장부 정리를 같이 한다',bigFx:()=>{S.tradeY+=1.5;S.repu=clamp(S.repu+3,0,100)}},
+ eye:{tal:['눈썰미','셈'],route:'wealth',t:y=>'물건 보는 눈',what:'좋은 물건 알아보는 눈',big:y=>y<1990?'장날마다 데리고 다니며 물건을 고르게 한다':'경매장·도매시장에 데리고 다닌다',small:'집에서 진짜와 가짜를 가려 보게 한다',bigFx:()=>{S.tradeY+=1;addMod({k:'trade',m:1.06,n:4})}},
+ learn:{tal:['글','끈기'],route:'learn',t:y=>y<1980?'글방':'집안 공부방',what:'글',big:y=>y<1980?'동네 아이들까지 모아 글방을 연다':'집에 공부방을 꾸리고 책을 들인다',small:'저녁마다 책을 읽어 주고 가르친다',bigFx:()=>{S.face=clamp(S.face+1,0,100)}},
+ speech:{tal:['말솜씨','마음씨'],route:'jeong',t:y=>'사람 대하는 법',what:'사람을 얻는 말솜씨',big:y=>'경조사마다 데리고 다니며 어른들께 인사시킨다',small:'밥상머리에서 사람 대하는 법을 일러 준다',bigFx:()=>{for(const n of S.nbs)n.j=clamp(n.j+1,-20,20)}},
+ body:{tal:['몸','끈기'],route:'craft',t:y=>'몸 쓰는 일',what:'몸 쓰는 요령',big:y=>y<1990?'일터에 데리고 나가 일을 가르친다':'운동부·체육관에 보낸다',small:'새벽마다 같이 뛰고 일한다',bigFx:()=>{}}};
+function heritageKind(){const H=homeAlive();const elders=H.filter(p=>age(p)>=35);if(!elders.length||!H.some(p=>age(p)>=10&&age(p)<=30))return null;
+  let best=null;for(const p of elders)for(const t of ['손재주','셈','말솜씨','눈썰미','글','몸']){const v=p.tal[t];if(v>=6&&(!best||v>best.v))best={p,t,v}}
+  if(S.tradeY>=6&&(!best||best.v<7))return {k:'trade',mid:(best||{}).p?best.p.id:null};
+  if(S.craftY>=6&&(!best||best.v<7))return {k:'craft',mid:(best||{}).p?best.p.id:null};
+  if(!best)return null;const k={손재주:'craft',셈:'trade',말솜씨:'speech',눈썰미:S.tradeY>0?'eye':'eye',글:'learn',몸:'body'}[best.t];return {k,mid:best.p.id}}
+/* 시험의 길: 공부해서 붙으면 학력·일자리가 바뀐다 */
+const EXAMS={
+ gumjeong:{n:y=>'검정고시',d:'못 마친 학교 졸업 자격',need:p=>p.edu<2,diff:.45,maxY:4,pass:(p,o)=>{p.edu=Math.max(p.edu,2);o.push('중·고교 졸업 자격을 얻었다. 이제 사무 일을 할 수 있다')}},
+ univ:{n:y=>y<1990?'늦깎이 대학 입시':'수능',d:'대학에 들어간다',need:p=>p.edu===2&&age(p)<=45,y:[1955,2110],diff:.28,maxY:4,pass:(p,o)=>{p.f.college=true;p.edu=3;o.push('대학에 붙었다. 대학을 다닌 셈으로 쳐 회사 일을 할 수 있다')}},
+ license:{n:y=>y<1980?'이·미용 자격':y<2010?'공인중개사':y<2040?'요양보호사·간호조무사':'돌봄 기술 자격',d:'자격증을 따서 일한다',need:p=>p.edu>=1,diff:.35,maxY:4,
+   pass:(p,o)=>{const y=S.year;if(y<1980){p.f.job='미용사';p.f.jobSlot='trade';p.slot='trade';p.tal.손재주=Math.min(p.cap.손재주,p.tal.손재주+.5)}else if(y<2010){p.f.job='공인중개사';p.f.jobSlot='trade';p.slot='trade';p.tal.말솜씨=Math.min(p.cap.말솜씨,p.tal.말솜씨+.5)}else{p.f.job=y<2040?'요양보호사':'돌봄 기사';p.f.jobSlot='care';p.slot='care'}o.push(p.f.job+' 자격을 땄다')}},
+ gong:{n:y=>'공무원 시험',d:'나라 일을 한다. 벌이는 보통, 안정적이다',need:p=>p.edu>=2&&age(p)<=40,y:[1955,2110],diff:.14,maxY:6,pass:(p,o)=>{p.f.official=true;p.edu=Math.max(p.edu,3);p.f.job='공무원';p.f.jobSlot='study';p.f.jobMul=.95;S.face=clamp(S.face+2,0,100);o.push('공무원 시험에 붙었다 (체면 +2)')}},
+ teacher:{n:y=>y<1990?'교사 자격':'임용 고시',d:'선생님이 된다. 체면이 오른다',need:p=>p.edu>=3&&age(p)<=40,diff:.14,maxY:6,pass:(p,o)=>{p.f.job='교사';p.f.jobSlot='study';p.f.jobMul=1.05;S.face=clamp(S.face+3,0,100);routeAdd('learn',3);o.push('선생님이 되었다 (체면 +3)')}},
+ gosi:{n:y=>y<1963?'고등고시':y<2017?'사법 시험':'변호사 시험',d:'붙으면 집안이 달라진다. 거의 안 붙는다',need:p=>p.edu>=3&&age(p)<=38,diff:.05,maxY:8,pass:(p,o)=>{p.f.job=S.year<2017?(R()<.5?'판사':'검사'):'변호사';p.f.jobSlot='study';p.f.jobMul=1.9;S.face=clamp(S.face+8,0,100);routeAdd('learn',8);o.push(p.f.job+'가 되었다! 온 동네에 잔치가 열렸다 (체면 +8)')}}};
+function examOpts(p){return Object.keys(EXAMS).filter(k=>{const e=EXAMS[k];return e.need(p)&&(!e.y||(S.year>=e.y[0]&&S.year<=e.y[1]))})}
+function examChance(p){const e=EXAMS[p.f.exam];if(!e)return 0;const g=p.tal.글,n=p.tal.끈기;const yrs=p.f.examY||0;
+  return clamp(e.diff*(.35+g*.13+n*.05)*(1+Math.min(.6,yrs*.12)),.01,.92)}
+function examYear(p,rp){
+  /* 일 대신 공부를 시키면 알맞은 시험을 저절로 고른다 */
+  if(!p.f.exam&&p.slot==='study'&&p.status==='home'&&age(p)>=20&&!p.f.college&&p.edu<3&&!p.f.artsPro){const ks=examOpts(p);const k=ks.includes('gumjeong')?'gumjeong':ks.includes('gong')?'gong':ks[0];if(k){p.f.exam=k;p.f.examY=0;rp.notes.push(p.name+josa(p.name,'이/가')+' '+EXAMS[k].n(S.year)+' 공부를 시작했다 (설 가족회의에서 바꿀 수 있다)')}}
+  if(!p.f.exam||p.slot!=='study'||p.status!=='home')return;const e=EXAMS[p.f.exam];if(!e){p.f.exam=null;return}
+  p.f.examY=(p.f.examY||0)+1;p.tal.글=Math.min(p.cap.글,p.tal.글+.25);p.tal.끈기=Math.min(p.cap.끈기,p.tal.끈기+.12);
+  if(R()<examChance(p)){const o=[];e.pass(p,o);p.recs.push({y:S.year,t:e.n(S.year)+'에 붙었다 ('+p.f.examY+'년 공부)',w:p.f.exam==='gosi'?5:3});
+    rp.major.push({major:true,t:p.name+' '+e.n(S.year)+' 합격 — '+o.join(' ')});p.aff=clamp(p.aff+2,-10,10);p.f.exam=null;p.f.examY=0;p.f.examDone=true;
+    if(p.slot==='study'&&p.f.jobSlot&&p.f.jobSlot!=='study')p.slot=p.f.jobSlot}
+  else{rp.notes.push(p.name+josa(p.name,'이/가')+' '+e.n(S.year)+'에 떨어졌다 ('+p.f.examY+'년째'+(p.f.examY>=e.maxY?', 식구들 눈치가 보인다':'')+')');if(p.f.examY>=e.maxY)p.grudge=clamp(p.grudge+1,0,10)}}
 function goodFace(){const n=S.nbs.filter(x=>x.j>=15).length;const jbB=S.jb&&(S.jb.kind==='true'||S.jb.kind==='ours')&&S.jb.pages>=3?5:0;return Math.max(40,60-8*n-jbB)}
 /* 자식의 길: 바라는 것과 나이에 따라 다른 선택지. 안건이 만들어질 때 몇 개를 골라 고정한다 */
 const FREE_PATHS={
@@ -1124,6 +1161,9 @@ function agendaView(a){
       opts:a.opts.map(k=>{const m=MOVES[k];const c=moveCost(k);return {k,t:m.name+(c>0?' ('+wonY(c)+' 더 듦)':' (집 팔고 '+wonY(-c)+' 남음)')+' — '+m.desc,need:c>0?{money:c}:null}}).concat([{k:'no',t:'여기서 산다'}])};
     case 'tutor':{const ks=homeAlive().filter(p=>!p.inlaw&&age(p)>=7&&age(p)<=19);return {title:S.year<1980?'서당과 과외':S.year<2010?'학원과 과외':'아이들 공부',text:'아이들('+ks.map(p=>p.name).join(', ')+') 공부에 돈을 들일까? 글이 오르고 학문의 길에 보탬이 된다.',
       opts:[{k:'big',t:'제대로 시킨다 ('+wonY(cm(10))+')',need:{money:cm(10)}},{k:'small',t:'책을 사 준다 ('+wonY(cm(3))+')',need:{money:cm(3)}},{k:'no',t:'학교로 충분하다'}]}}
+    case 'exam':{const ks=examOpts(p);const cur=p.f.exam&&EXAMS[p.f.exam];
+      return {title:p.name+'의 시험 ('+age(p)+'세)',text:(cur?p.name+josa(p.name,'이/가')+' '+cur.n(S.year)+' 공부를 '+(p.f.examY||0)+'년째 하고 있다. 계속할까? ':p.name+josa(p.name,'은/는')+' 글 '+pt(p.tal.글)+', 끈기 '+pt(p.tal.끈기)+'. '+(p.slot==='study'?'일 대신 공부를 하고 있다. 무슨 시험을 볼까?':'글 솜씨가 아깝다. 일을 쉬고 시험을 준비해 볼까?'))+' 공부하는 동안은 벌이가 없다.',
+       opts:ks.map(k=>{const e=EXAMS[k];const q=Object.assign({},p,{f:Object.assign({},p.f,{exam:k,examY:cur&&p.f.exam===k?p.f.examY:0})});return {k,t:e.n(S.year)+' — '+e.d+' (한 해 붙을 가능성 '+Math.round(examChance(q)*100)+'%)'}}).concat([{k:'no',t:cur?'그만두고 일을 찾는다':'일을 계속한다'}])}}
     case 'biz':{const b=bizOf();const c=bizCost();return {title:'업종 바꾸기',text:'지금 하는 장사: '+(S.tradeSt>=3?b.big+' ('+b.n(S.year)+')':b.n(S.year))+'. '+(bizFade()<1?'이 장사는 시대가 지나 손님이 줄었다 (벌이 '+Math.round(bizFade()*100)+'%). ':S.year>=b.y[1]-3?'이 장사도 곧 저물 것 같다. ':'')+'업종을 바꾸면 '+wonY(c)+'이 들고 단골 일부를 잃는다.',
       opts:a.opts.filter(k=>BIZ[k]).map(k=>({k,t:BIZ[k].n(S.year)+' ('+wonY(c)+') — '+BIZ[k].d+' · 중요한 재주: '+Object.keys(BIZ[k].w).sort((x,z)=>BIZ[k].w[z]-BIZ[k].w[x]).slice(0,2).join('·'),need:{money:c}})).concat([{k:'no',t:'하던 장사를 계속한다'}])}}
     case 'arts':{const A=ARTS[p.f.dream],a=age(p),y=S.year,k=A.tal;const lv=p.f.artsLv||0;
@@ -1135,8 +1175,9 @@ function agendaView(a){
       opts:L.map(it=>({k:it.id,t:it.n(S.year)+' ('+wonY(buyCost(it))+') — '+it.d,need:{money:buyCost(it)}})).concat([{k:'no',t:'이번엔 아낀다'}])}}
     case 'feast':return {title:S.year<1990?'동네 잔치':'동네에 베풀기',text:'동네에 베풀 기회다. 돈은 들지만 이웃 정이 깊어지고 정의 길에 보탬이 된다.',
       opts:[{k:'big',t:S.year<1990?'골목 잔치를 연다':'동네 행사에 크게 기부한다'+' ('+wonY(cm(12))+')',need:{money:cm(12)}},{k:'small',t:'어려운 집 몇 곳을 챙긴다 ('+wonY(cm(4))+')',need:{money:cm(4)}},{k:'no',t:'우리 살기도 바쁘다'}]};
-    case 'workshop':return {title:S.year<1990?'기술 전수':'공방',text:'집안 손기술을 다음 대에 물려줄까? 식구들 손재주가 오르고 장인의 길에 보탬이 된다.',
-      opts:[{k:'big',t:'작은 공방을 꾸린다 ('+wonY(cm(14))+')',need:{money:cm(14)}},{k:'small',t:'저녁마다 손수 가르친다',need:null},{k:'no',t:'기술로는 먹고살기 힘들다'}]};
+    case 'workshop':{const H=HERIT[a.hk||'craft'],m=a.mid?P(a.mid):null;const RN={craft:'장인',wealth:'부',learn:'학문',jeong:'정'}[H.route];
+      return {title:'가업 전수 — '+H.t(S.year),text:(m?m.name+josa(m.name,'이/가')+' 가진 ':'집안의 ')+H.what+josa(H.what,'을/를')+' 아랫대에 물려줄까? 식구들 '+H.tal.join('·')+josa(H.tal[H.tal.length-1],'이/가')+' 오르고 '+RN+'의 길에 보탬이 된다.',
+      opts:[{k:'big',t:H.big(S.year)+' ('+wonY(cm(10))+')',need:{money:cm(10)}},{k:'small',t:H.small+' (일손이 조금 준다)'},{k:'no',t:'저마다 제 길을 찾게 둔다'}]}}
     case 'roots':return {title:S.year<2000?'고향과 족보':'집안 기록',text:'흩어진 집안 이야기를 모을까? 뿌리의 길에 보탬이 된다.',
       opts:[{k:'big',t:(S.year<1990?'고향 사람들을 수소문한다':'집안 기록을 책으로 엮는다')+' ('+wonY(cm(8))+')',need:{money:cm(8)}},{k:'small',t:'어른들 이야기를 받아 적는다'},{k:'no',t:'지난 일이다'}]};
     case 'free':{const o=freeOpts(p,a);return {title:p.name+'의 길 ('+age(p)+'세)',text:o.text,opts:o.opts}}
@@ -1204,6 +1245,8 @@ function runAgenda(ai,k){
     case 'tutor':{const ks=homeAlive().filter(q=>!q.inlaw&&age(q)>=7&&age(q)<=19);if(k==='no'){out.push('학교 공부로 충분하다');break}S.lastEdu=S.year;
       const c=k==='big'?cm(10):cm(3);S.money-=c;for(const q of ks){const v=k==='big'?1.5:.7;if(q.tal.글<q.cap.글)q.tal.글=Math.min(q.cap.글,q.tal.글+v);if(k==='big'&&R()<.3)q.cap.글=Math.min(10,q.cap.글+1)}
       routeAdd('learn',k==='big'?3:1);out.push(ks.map(q=>q.name).join(', ')+' 글 +'+(k==='big'?15:7)+' ('+sgW(-c)+')');if(k==='big'&&ks.some(q=>q.desire==='자유'||q.desire==='부')){const q=ks.find(q=>q.desire==='자유'||q.desire==='부');q.grudge=clamp(q.grudge+1,0,10);out.push(q.name+josa(q.name,'은/는')+' 공부가 싫은 눈치다')}break}
+    case 'exam':{if(k==='no'){if(p.f.exam){out.push(p.name+josa(p.name,'이/가')+' 시험을 접었다');p.f.exam=null;p.f.examY=0;p.f.examDone=true;if(p.slot==='study'&&p.edu<2)p.slot=bestWork(p)}else out.push(p.name+josa(p.name,'은/는')+' 하던 일을 계속한다');break}
+      if(p.f.exam!==k)p.f.examY=0;p.f.exam=k;p.slot='study';out.push(p.name+josa(p.name,'이/가')+' '+EXAMS[k].n(S.year)+' 공부를 '+(p.f.examY?'이어 간다':'시작했다')+'. 가을마다 결과가 나온다');break}
     case 'biz':{if(k==='no'){S.bizY=S.year;out.push('하던 장사를 계속한다');break}const old=bizOf().n(S.year);S.money-=bizCost();S.biz=k;S.bizY=S.year;S.repu=Math.round((S.repu||50)*.6);S.tradeY*=.85;const nw=BIZ[k].n(S.year);const msg=old+josa(old,'을/를')+' 접고 '+nw+josa(nw,'을/를')+' 열었다';out.push(msg);const r0=rep();if(r0)r0.recs.push({y:S.year,t:msg,w:2});break}
     case 'arts':{const A=ARTS[p.f.dream],kk=A.tal;const up=(v)=>{p.tal[kk]=Math.min(p.cap[kk],p.tal[kk]+v)};p.f.artsY=S.year;
       if(k==='lesson'){S.money-=cm(4);up(.8);p.aff=clamp(p.aff+2,-10,10);p.f.artsLv=1;p.f.artsStart=p.f.artsStart||S.year;out.push(p.name+josa(p.name,'이/가')+' '+A.lesson(S.year)+'에 다닌다. '+kk+' +8, 애정 +2')}
@@ -1218,9 +1261,12 @@ function runAgenda(ai,k){
       if(buyList().length){const prev=S.agendaRes[ai];S.agendaRes[ai]={title:v.title,msgs:(prev&&prev.msgs||[]).concat(out),partial:true};logIt('설: 살림 장만 — '+out[0]);return}break}
     case 'feast':{if(k==='no'){out.push('올해는 넘어간다');break}S.lastFeast=S.year;const c=k==='big'?cm(12):cm(4);S.money-=c;const v=k==='big'?2:1;for(const n of S.nbs)n.j=clamp(n.j+v,-20,20);if(k==='big')S.face=clamp(S.face+2,0,100);
       routeAdd('jeong',k==='big'?5:2);out.push('이웃 모두 정 +'+v+(k==='big'?', 체면 +2':'')+' ('+sgW(-c)+')');if(k==='big')r.recs.push({y:S.year,t:S.year<1990?'골목 잔치를 열어 동네를 대접했다':'동네에 크게 베풀었다',w:2});break}
-    case 'workshop':{if(k==='no'){out.push('기술은 그만둔다');break}S.lastWork=S.year;const H2=homeAlive().filter(q=>age(q)>=10);
-      if(k==='big'){const c=cm(14);S.money-=c;S.craftY+=2;routeAdd('craft',4);S.repu=clamp(S.repu+4,0,100);out.push('작은 공방을 꾸렸다 ('+sgW(-c)+')');r.recs.push({y:S.year,t:'집안 손기술로 작은 공방을 꾸렸다',w:2})}else{routeAdd('craft',1.5);out.push('저녁마다 손기술을 가르친다')}
-      for(const q of H2)if(q.tal.손재주<q.cap.손재주&&R()<(k==='big'?.8:.5))q.tal.손재주=Math.min(q.cap.손재주,q.tal.손재주+.5+R()*.7);out.push('식구들 손재주가 늘었다');break}
+    case 'workshop':{const H=HERIT[a.hk||'craft'],m=a.mid?P(a.mid):null;if(k==='no'){out.push('저마다 제 길을 찾게 둔다');S.lastWork=S.year;break}S.lastWork=S.year;
+      const H2=homeAlive().filter(q=>age(q)>=10&&age(q)<=40&&(!m||q.id!==m.id));
+      if(k==='big'){const c=cm(10);S.money-=c;H.bigFx();routeAdd(H.route,4);out.push(H.big(S.year)+' ('+sgW(-c)+')');(m||r).recs.push({y:S.year,t:H.what+josa(H.what,'을/를')+' 아랫대에 물려주었다',w:2})}
+      else{routeAdd(H.route,1.5);S.money-=cm(1.5);out.push(H.small+' (일손이 줄어 '+sgW(-cm(1.5))+')')}
+      const got=[];for(const q of H2){let up=false;for(const t of H.tal)if(q.tal[t]<q.cap[t]&&R()<(k==='big'?.8:.5)){q.tal[t]=Math.min(q.cap[t],q.tal[t]+.4+R()*.6);up=true}if(up)got.push(q.name)}
+      out.push(got.length?got.join('·')+'의 '+H.tal.join('·')+josa(H.tal[H.tal.length-1],'이/가')+' 늘었다':'아직 배울 만한 아이가 없다');break}
     case 'roots':{if(k==='no'){out.push('지난 일은 묻어 둔다');break}S.lastRoot=S.year;if(k==='big'){const c=cm(8);S.money-=c;routeAdd('root',4);S.frag=clamp(S.frag+1,0,5);out.push('흩어진 집안 이야기를 모았다 ('+sgW(-c)+', 고향 기억 조각 +1)');r.recs.push({y:S.year,t:S.year<1990?'고향 사람들을 수소문해 집안 내력을 모았다':'집안 기록을 책으로 엮었다',w:3})}
       else{routeAdd('root',1.5);if(R()<.4){S.frag=clamp(S.frag+1,0,5);out.push('어른들 이야기에서 고향 기억 조각 하나를 찾았다')}else out.push('어른들 이야기를 받아 적었다')}break}
     case 'free':{if(k==='no'){p.grudge=clamp(p.grudge+(p.pers.고집>=7?2:1),0,10);out.push(p.name+josa(p.name,'이/가')+' 입을 다물었다');break}
