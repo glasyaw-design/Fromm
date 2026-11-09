@@ -749,7 +749,7 @@ const FILLER={
  '동네':[
   {id:'f-N1',slot:'동네',rep:true,nb:'any',title:'골목 인사',text:()=>'{nb}{nb:과/와} '+(S.year<2030?'골목':'엘리베이터')+'에서 마주쳤다.',ch:[{t:'먹을 것을 나눈다',fx:{money:-1,nbj:1}},{t:'인사만 한다',fx:{}}]},
   {id:'f-N2',slot:'동네',rep:true,nb:'minj',title:'서먹한 이웃',text:'{nb}{nb:과/와} 요즘 말을 안 섞는다.',ch:[{t:'먼저 찾아간다',fx:{nbj:2,money:-1}},{t:'그냥 둔다',fx:{nbj:-1}}]},
-  {id:'f-N3',slot:'동네',rep:true,nb:'any',title:'빌려 간 물건',text:()=>'{nb}{nb:이/가} 빌려 간 '+(S.year<1980?'맷돌':S.year<2030?'사다리':'공구 상자')+'을 아직 안 돌려준다.',ch:[{t:'달라고 한다',fx:{nbj:-1}},{t:'모른 척한다',fx:{money:-1,nbj:1}}]},
+  {id:'f-N3',slot:'동네',rep:true,nb:'any',title:'빌려 간 물건',text:()=>'{nb}{nb:이/가} 빌려 간 '+(S.year<1980?'맷돌을':S.year<2030?'사다리를':'공구 상자를')+' 아직 안 돌려준다.',ch:[{t:'달라고 한다',fx:{nbj:-1}},{t:'모른 척한다',fx:{money:-1,nbj:1}}]},
   {id:'f-N4',slot:'동네',rep:true,nb:'maxj',title:'이웃 잔치',text:'{nb}에 좋은 일이 있어 떡을 돌렸다.',ch:[{t:'답례를 한다 (2)',need:{money:2},fx:{money:-2,nbj:2}},{t:'고맙다는 말만 한다',fx:{}}]}],
  '시대':[
   {id:'f-E1',slot:'시대',rep:true,title:'달라지는 세상',text:()=>S.year<1970?'라디오에서 나라가 바뀐다는 소식이 이어진다.':S.year<2000?'텔레비전 뉴스가 매일 새 물건, 새 동네 이야기를 한다.':S.year<2050?'새로 나온 기기를 다들 하나씩 들고 다닌다.':'새 기술 소식이 쏟아지지만 어른들은 따라가기 벅차다.',ch:[{t:'배워 본다 (1)',need:{money:1},fx:{money:-1,affAll:1}},{t:'하던 대로 산다',fx:{money:1}}]},
@@ -849,7 +849,7 @@ function applyFx(fx,ctx,out,opt){
   if(fx.comeHome&&sj&&sj.status==='away'){sj.status='home';sj.away=null;out.push(sj.name+josa(sj.name,'이/가')+' 다시 집으로 들어왔다');for(const q of S.people)if(q.alive&&q.status==='away'&&(q.id===sj.spouse||q.parents.includes(sj.id))&&q.away&&KIN_WHY.includes(q.away.why)){q.status='home';q.away=null;out.push(q.name+'도 함께 왔다')}}
   if(fx.jb&&S.jb){const j=fx.jb;for(const k in j){if(k==='pagesAdd'){S.jb.pages+=j[k];out.push('족보 '+j[k]+'쪽을 더 적었다 (모두 '+S.jb.pages+'쪽)')}else S.jb[k]=j[k]}
     if(j.bon!==undefined||j.kind)out.push('족보: '+jbKindText()+(S.jb.bon?' · '+jbBonText():''));if(j.kind==='bought')S.flags.bongwan=S.year;if(j.kind==='ours'||j.kind==='true')S.flags.ourJokbo=S.flags.ourJokbo||S.year}
-  if(fx.marry&&sj&&!sj.f.married){doMarry(sj,fx.marry,out);if(marryHome(sj)==='out'&&sj.status==='home'){moveOut(sj,'출가');out.push(sj.name+josa(sj.name,'은/는')+' 시댁으로 들어갔다')}}
+  if(fx.marry&&sj&&!sj.f.married){doMarry(sj,fx.marry,out);if(marryHome(sj)==='out'&&sj.status==='home'){moveOut(sj,'출가');out.push(sj.name+josa(sj.name,'은/는')+' 시댁으로 들어갔다')}familySync()}
   if(fx.official&&sj){sj.f.official=true;sj.slot='study'}
   if(fx.edu&&sj)sj.edu=Math.max(sj.edu,fx.edu);
   if(fx.die&&sj)killP(sj,out);
@@ -1207,7 +1207,17 @@ function forecast(){const yr=S.year,H=homeAlive(),pb=prod(yr)*PAY,F={work:0,pens
   F.tax=.15*Math.max(0,F.inc-35*pb)+.12*Math.max(0,F.inc-80*pb);
   F.spend=.2*Math.max(0,F.inc)+.02*Math.max(0,S.money);
   F.out=F.fee+F.base+F.crowd+F.care+F.house+F.upkeep+F.tax+F.spend;F.net=F.inc-F.out;return F}
-function simulate(years){
+/* 식구 자리 맞추기: 혼인해 들어온 사람은 짝을 따라가고, 어린아이는 부모를 따라간다 */
+const HOUSE_WHY=['출가','분가','갈라섬','의절','상경','타지','귀촌','사랑을 따라','부모 따라','이민','제 길'];
+function familySync(){
+  for(const p of S.people){if(!p.alive||p.inlaw)continue;const sp=p.spouse?P(p.spouse):null;if(!sp||!sp.alive||!sp.inlaw)continue;
+    if(p.status!=='home'&&p.away&&HOUSE_WHY.includes(p.away.why)&&sp.status==='home'){sp.status='away';sp.away={why:p.away.why,until:null}}
+    else if(p.status==='home'&&sp.status!=='home'&&sp.away&&HOUSE_WHY.includes(sp.away.why)){sp.status='home';sp.away=null}}
+  for(const c of S.people){if(!c.alive||c.inlaw||age(c)>=18)continue;const ps=c.parents.map(P).filter(q=>q&&q.alive);if(!ps.length)continue;
+    const away=ps.every(q=>q.status!=='home'&&q.away&&['출가','분가','갈라섬','의절','이민','귀촌'].includes(q.away.why));
+    if(away&&c.status==='home'){c.status='away';c.away={why:'부모 따라',until:null}}
+    else if(!away&&ps.some(q=>q.status==='home')&&c.status!=='home'&&c.away&&c.away.why==='부모 따라'){c.status='home';c.away=null}}}
+function simulate(years){familySync();
   const rp={summer:S.springM!=null?S.money-S.springM:0,fcNet:S.springF,y0:S.year,y1:S.year+years-1,inc:{},fee:0,live:0,care:0,start:S.money,startNW:netWorth(),notes:[],major:S.newsY.slice(),slotName:{},births:[],grow:{},erosion:0,interest:0};
   for(const p of S.people)p.grow={};
   for(let i=0;i<years;i++){
@@ -1346,7 +1356,7 @@ function simulate(years){
       const a=yr-m.birth;if(a<20||a>41)continue;const kids=S.people.filter(c=>c.parents.includes(m.id)).length;if(kids>=maxK)continue;
       let pr=bp;if(kids===0&&a>=26)pr*=2.6;if(kids===0&&a>=32)pr*=1.6;if(kids===1&&a>=30&&yr>=1990)pr*=1.3;
       if(R()<pr){const sex=R()<.5?'m':'f';const gen=Math.max(m.gen,sp.gen)+1;
-        const c=mkPerson({sex,birth:yr,gen,parents:[m.id,sp.id],aff:3});c.f.newborn=m.status==='home';
+        const c=mkPerson({sex,birth:yr,gen,parents:[m.id,sp.id],aff:3,sur:sp.sur||S.sur});c.f.newborn=m.status==='home';
         if(m.status!=='home'){c.status='away';c.away={why:m.away.why,until:null};rp.notes.push(sp.name+'·'+m.name+' 부부('+m.away.why+')에게 '+(sex==='m'?'아들':'딸')+' '+c.name+josa(c.name,'이/가')+' 태어났다');continue}
         rp.births.push({id:c.id,parents:sp.name+'·'+m.name,y:yr});
         const first=!S.people.some(q=>q.id!==c.id&&q.gen===gen&&!q.inlaw);if(first&&gen>=2)rp.major.push({major:true,t:(gen-1)+'세대의 첫 아이가 태어났다'})}
@@ -1558,7 +1568,7 @@ function agendaView(a){
       a.offers.forEach((o,k)=>opts.push({k:'buy'+k,t:LAND_KINDS[o.kind].name+' 한 필지 산다 ('+wonY(o.price)+')',need:{money:o.price}}));
       if(a.offers.length>=2){const t=a.offers.reduce((x,o)=>x+o.price,0);opts.push({k:'buyall',t:'나온 땅을 모두 산다 ('+wonY(t)+')',need:{money:t}})}
       own.forEach((p,k)=>{if(k<4)opts.push({k:'sell'+k,t:landDesc(p)+' 판다 (+'+wonY((parcelVal(p)+(p.bld?bldVal():0))*.95)+')'})});
-      const ls=own.findIndex(p=>!p.lease&&!p.bld);if(ls>=0)opts.push({k:'lease'+ls,t:LAND_KINDS[own[ls].kind].name+'을 세놓는다'});
+      const ls=own.findIndex(p=>!p.lease&&!p.bld);if(ls>=0)opts.push({k:'lease'+ls,t:LAND_KINDS[own[ls].kind].name+josa(LAND_KINDS[own[ls].kind].name,'을/를')+' 세놓는다'});
       const bd=own.findIndex(p=>LAND_KINDS[p.kind].build&&!p.bld);if(bd>=0&&S.year>=1965)opts.push({k:'build'+bd,t:'상가 건물을 올린다 ('+wonY(bldVal())+')',need:{money:bldVal()}});
       opts.push({k:'no',t:'그대로 둔다'});
       return {title:'땅',text:'가진 땅 '+own.length+'필지 ('+wonY(landTotal())+')'+(own.length?': '+own.map(landDesc).join(', '):'')+'. 올해 나온 땅 '+a.offers.length+'필지. 세놓으면 해마다 세가 들어오고, 건물을 올리면 월세를 받는다.',opts}}
@@ -1570,7 +1580,7 @@ function agendaView(a){
       opts:a.opts.filter(k=>BIZ[k]).map(k=>({k,t:BIZ[k].n(S.year)+' ('+wonY(c)+') — '+BIZ[k].d+' · 중요한 재주: '+Object.keys(BIZ[k].w).sort((x,z)=>BIZ[k].w[z]-BIZ[k].w[x]).slice(0,2).join('·'),need:{money:c}})).concat([{k:'no',t:'하던 장사를 계속한다'}])}}
     case 'arts':{const A=ARTS[p.f.dream],a=age(p),y=S.year,k=A.tal;const lv=p.f.artsLv||0;
       const said={음악:y<1975?'라디오 노래를 하루 종일 따라 부르고, 밥상을 두드리며 박자를 맞춘다':'남의 집 피아노 소리만 들리면 창가에 붙어 선다',미술:'공책마다 그림이 가득하다. 교과서 귀퉁이에도 사람 얼굴이 그려져 있다',운동:'학교가 끝나면 날이 저물 때까지 운동장에서 안 들어온다',연기:'식구들 앞에서 연속극 흉내를 내고 노래를 부른다'}[p.f.dream];
-      const base={title:p.name+'의 꿈 — '+A.dream+' ('+a+'세)',text:p.name+josa(p.name,'은/는')+' '+said+'. '+A.dream+'을 하고 싶다고 한다. '+k+' '+Math.round(p.tal[k]*10)+(p.f.desireKnown?' · 바라는 것: '+p.desire:'')+'.'};
+      const base={title:p.name+'의 꿈 — '+A.dream+' ('+a+'세)',text:p.name+josa(p.name,'은/는')+' '+said+'. '+A.dream+josa(A.dream,'을/를')+' 하고 싶다고 한다. '+k+' '+Math.round(p.tal[k]*10)+(p.f.desireKnown?' · 바라는 것: '+p.desire:'')+'.'};
       if(a<=14||lv===0)return {...base,opts:[{k:'lesson',t:A.lesson(y)+'에 보낸다 ('+wonY(cm(4))+')',need:{money:cm(4)}},{k:'self',t:'돈 안 드는 방법을 찾아 준다'},{k:'later',t:'공부가 먼저다'}]};
       return {...base,text:base.text+' 배운 지 '+(y-(p.f.artsStart||y))+'년째다.',opts:[{k:'pro',t:A.school(y)+(p.f.dream==='운동'?'으로 키운다':'에 보낸다')+' ('+wonY(cm(12))+')',need:{money:cm(12)}},{k:'contest',t:'대회에 나가 본다 ('+wonY(cm(3))+')',need:{money:cm(3)}},{k:'hobby',t:'취미로 남기고 제 앞가림부터'},{k:'stop',t:'이제 그만두게 한다'}]}}
     case 'buy':{const L=buyList();const t=wealthTier();return {title:'살림 장만',text:'형편: '+WEALTH[t]+' (모아 둔 돈 '+wonY(S.money)+'). 형편이 좋을수록 고를 수 있는 것이 늘어난다. 여러 개를 사도 된다.',
@@ -1622,6 +1632,7 @@ function runAgenda(ai,k){
       if(k==='later'){out.push('혼사를 미뤘다');break}
       doMarry(p,k,out,a.cands&&a.cands[k]);{const mh=marryHome(p);const sp=P(p.spouse);
         if(mh==='out'){moveOut(p,'출가');out.push(p.name+josa(p.name,'은/는')+' '+(S.year<1980?'출가외인이라며 ':'')+'시댁으로 들어갔다. 명절이면 친정에 다니러 온다');S.agendaStep=null;break}
+        if(mh==='with'){familySync();out.push(p.name+' 부부는 '+(p.away?p.away.why+'해 ':'')+'사는 곳에서 살림을 차렸다');S.agendaStep=null;break}
         if(mh==='son-in-law'){out.push('집에 남을 자식이 없어 '+(sp?sp.name+josa(sp.name,'을/를')+' ':'')+'데릴사위로 들였다');S.agendaStep=null;break}
         if(mh==='in'){if(sp){sp.status='home';sp.away=null}out.push(sp?sp.name+josa(sp.name,'이/가')+' 우리 집 며느리로 들어왔다':'');S.agendaStep=null;break}}
       S.agendaStep={kind:'live',pid:p.id};S.agendaRes[ai]={title:v.title,msgs:out,partial:true};return;
@@ -1652,7 +1663,7 @@ function runAgenda(ai,k){
       else if(k==='later'){p.grudge=clamp(p.grudge+1,0,10);if(R()<.4){p.f.artsDone=true;out.push(p.name+josa(p.name,'은/는')+' 꿈을 접었다 (원한 +1)')}else out.push(p.name+josa(p.name,'이/가')+' 서운해한다 (원한 +1)')}
       else if(k==='pro'){S.money-=cm(12);up(1.2);p.cap[kk]=Math.min(10,p.cap[kk]+1);p.f.artsPro=true;p.f.artsDone=true;p.slot='study';p.aff=clamp(p.aff+3,-10,10);p.grudge=Math.max(0,p.grudge-2);routeAdd('free',3);p.recs.push({y:S.year,t:A.school(S.year)+'에 가 '+A.dream+'의 길을 걸었다',w:3});out.push(p.name+josa(p.name,'이/가')+' '+A.dream+'의 길로 간다. '+kk+' +12, 한계 +10, 자유의 길에 보탬')}
       else if(k==='contest'){S.money-=cm(3);up(.4);const win=R()<.15+p.tal[kk]*.06;if(win){S.face=clamp(S.face+2,0,100);p.aff=clamp(p.aff+2,-10,10);p.recs.push({y:S.year,t:A.dream+' 대회에서 상을 받았다',w:2});out.push(p.name+josa(p.name,'이/가')+' 대회에서 상을 받았다! 체면 +2')}else{p.tal.끈기=Math.min(p.cap.끈기,p.tal.끈기+.5);out.push(p.name+josa(p.name,'은/는')+' 상은 못 받았지만 다시 해 보겠다고 한다')}}
-      else if(k==='hobby'){p.f.artsDone=true;p.f.artsHobby=true;out.push(p.name+josa(p.name,'은/는')+' '+A.dream+'을 취미로 이어 간다')}
+      else if(k==='hobby'){p.f.artsDone=true;p.f.artsHobby=true;out.push(p.name+josa(p.name,'은/는')+' '+A.dream+josa(A.dream,'을/를')+' 취미로 이어 간다')}
       else{p.f.artsDone=true;p.grudge=clamp(p.grudge+2,0,10);p.aff=clamp(p.aff-1,-10,10);out.push(p.name+josa(p.name,'이/가')+' 크게 서운해한다 (원한 +2)')}
       break}
     case 'buy':{if(k==='no'){out.push('살림은 그대로 둔다');break}const it=BUY_ITEMS.find(x=>x.id===k);if(!it)break;S.money-=buyCost(it);(S.bought=S.bought||{})[it.id]=S.year;out.push(it.n(S.year)+josa(it.n(S.year),'을/를')+' 장만했다');it.fx(out);
@@ -1735,6 +1746,12 @@ function afterAutumn(){
     }
     return startInherit();
   }
+  if(!homeAlive().length&&!S.people.some(p=>p.alive&&!p.inlaw)&&(S.adopted||0)<2){
+    /* 핏줄이 모두 끊겼다: 먼 친척 집에서 양자를 들여 대를 잇는다 */
+    S.adopted=(S.adopted||0)+1;const c=mkPerson({sex:R()<.5?'m':'f',birth:S.year-ri(18,26),gen:S.curGen+1,adult:true,aff:1});c.f.adopted=true;
+    c.recs.push({y:S.year,t:'핏줄이 끊긴 집에 먼 친척 집에서 양자로 들어와 대를 이었다',w:4});S.repId=c.id;
+    S.newsY.push({major:true,t:c.name+josa(c.name,'이/가')+' 양자로 들어와 대를 잇는다'});
+    S.banner='집안에 핏줄이 아무도 남지 않아, 먼 친척 집 '+c.name+josa(c.name,'을/를')+' 양자로 들였다.'}
   if(!homeAlive().length){const b=recallHome();if(!b)return endGame('scatter');S.repId=b.id;S.repDied=false;S.banner=(S.banner?S.banner+' ':'')+'빈집이 된 우리 집에 '+b.name+josa(b.name,'이/가')+' 돌아와 대표를 맡았다.'}
   if(S.repDied){
     S.repDied=false;const old=rep();const c=repCands();
@@ -1836,7 +1853,7 @@ function inhConfirm(){
   }
   {const gone=new Set();for(const a of I.assets)if(a.land&&a.goneIdx)a.goneIdx.forEach(i=>gone.add(i));S.lands=(S.lands||[]).filter((p,i)=>!gone.has(i));landSync()}
   if(jesaId){const j=P(jesaId);if(j)j.recs.push({y:S.year,t:'부모의 제사를 맡았다',w:2})}
-  I.done=true;
+  I.done=true;familySync();
 }
 function inhNext(){
   const r=rep();if(r&&r.alive&&r.status==='home'&&r.gen>S.curGen)return finishGen();
@@ -1845,6 +1862,10 @@ function inhNext(){
   if(repCands().filter(p=>p.gen>S.curGen).length){S.phase='chooseRep';return}
   if(r&&r.alive&&r.status==='home')return finishGen();
   const b=recallHome();if(b){S.repId=b.id;S.banner=b.name+josa(b.name,'이/가')+' 집으로 돌아와 대표를 맡았다.';return finishGen()}
+  /* 어린 자식만 남았다: 맏이가 이름만 대표를 잇고, 먼 친척 어른이 들어와 돌봐 준다 */
+  const young=homeAlive().filter(p=>!p.inlaw&&p.gen>S.curGen).sort((a,b)=>a.birth-b.birth)[0];
+  if(young){S.repId=young.id;const g=mkPerson({sex:'f',birth:S.year-ri(45,58),gen:S.curGen,adult:true,inlaw:true,aff:2,sur:pick(SURN.filter(x=>x!==S.sur))});g.f.guardian=true;g.slot='home';
+    young.recs.push({y:S.year,t:'어린 나이에 집안을 물려받았다',w:3});S.banner='부모를 여읜 '+young.name+'('+age(young)+'세)'+josa(young.name,'이/가')+' 집을 잇는다. 먼 친척 '+g.name+josa(g.name,'이/가')+' 들어와 아이들을 돌본다.';return finishGen()}
   endGame('scatter');
 }
 function chooseRep(id){
@@ -1898,7 +1919,7 @@ function routeRaw(){
     root:(S.jb?S.jb.pages*1.5+(S.jb.kind==='true'?6:S.jb.kind==='ours'?5:S.jb.kind==='bought'?1:0)+(S.jb.women?2:0)+(S.jb.adopted?2:0)+(S.jb.preface?3:0):0)+S.frag+(S.flags.reunion?5:0)+(S.flags.homecoming?5:0)+(S.flags.ourJokbo?4:0)+(S.flags.bongwan?2:0)+(S.place.kind==='origin'?3:0)+b.filter(p=>p.alive&&p.status==='home').length+(T.root||0),
     free:b.filter(p=>p.f.freed).length*2+b.filter(p=>p.aff>=6&&p.grudge<=1).length+(T.free||0)-b.filter(p=>p.away&&p.away.why==='의절').length*3};
 }
-const ROUTE_TH={wealth:[2,4,8,15,30],learn:[6,14,24,36,50],jeong:[40,70,100,135,180],craft:[10,20,30,42,58],root:[16,28,40,52,66],free:[6,14,24,34,46]};
+const ROUTE_TH={wealth:[.6,1.6,4,10,25],learn:[6,14,24,36,50],jeong:[40,70,100,135,180],craft:[10,20,30,42,58],root:[16,28,40,52,66],free:[6,14,24,34,46]};
 function routeScores(){const raw=routeRaw();const sc={};for(const k in raw){const th=ROUTE_TH[k];let n=0;for(const t of th)if(raw[k]>=t)n++;sc[k]=n}return sc}
 function routeAdd(k,v){S.routeAcc=S.routeAcc||{};S.routeAcc[k]=(S.routeAcc[k]||0)+v}
 function titlesOf(){
@@ -1972,7 +1993,7 @@ function landOffers(){const n=2+(R()<.5?1:0);const L=[];for(let i=0;i<n;i++){con
 const LAND_CARDS=[
  {id:'l-rumor',slot:'시대',rep:true,y:[1962,2008],nb:'maxj',title:'개발 소문',text:'{nb}{nb:이/가} 귀띔한다. "저쪽 들판에 길이 난대. 지금 사 두면 몇 년 뒤 값이 확 뛸 거야."',
   ch:[{t:'한 필지 사 둔다',fx:{run:()=>{const p=landAdd(R()<.5?'hill':'farm');const c=parcelVal(p);S.money-=c;S.chains.push({id:'l-rumor2',at:S.year+ri(3,6),subj:null,nb:null});return '땅을 샀다 ('+sgW(-c)+')'}}},
-      {t:'가진 땅을 지금 판다',fx:{run:()=>{if(!S.land)return '팔 땅이 없다';const p=landRemove();const v=parcelVal(p)*1.15;S.money+=v;return LAND_KINDS[p.kind].name+'을 소문 덕에 비싸게 팔았다 ('+sgW(v)+')'}}},
+      {t:'가진 땅을 지금 판다',fx:{run:()=>{if(!S.land)return '팔 땅이 없다';const p=landRemove();const v=parcelVal(p)*1.15;S.money+=v;return LAND_KINDS[p.kind].name+josa(LAND_KINDS[p.kind].name,'을/를')+' 소문 덕에 비싸게 팔았다 ('+sgW(v)+')'}}},
       {t:'소문은 소문일 뿐이다',fx:{}}]},
  {id:'l-rumor2',slot:'시대',chainOnly:true,major:true,title:'그 소문의 끝',text:'몇 년 전 들었던 개발 소문이 어떻게 됐는지 알려졌다.',
   ch:[{t:'결과를 듣는다',fx:{run:()=>{const r=R();const L=(S.lands||[]).filter(p=>S.year-p.since<=7);if(!L.length)return '그 땅은 이미 팔았다';
@@ -2005,7 +2026,7 @@ const LAND_CARDS=[
       {t:'다른 세입자를 찾는다',fx:{run:()=>{const v=bldVal()*.01;S.money-=v;return '중개 수수료를 내고 새 세입자를 들였다 ('+sgW(-v)+')'}}}]},
  {id:'l-tax',slot:'시대',rep:true,y:[2005,2075],cond:()=>S.land>=3,title:'땅 세금',text:'땅을 여러 필지 가진 집에 무거운 세금 고지서가 날아왔다.',
   ch:[{t:'낸다',fx:{run:()=>{const v=landTotal()*.012;S.money-=v;return '세금 '+sgW(-v)}}},
-      {t:'한 필지를 팔아 정리한다',fx:{run:()=>{const p=landRemove();const v=parcelVal(p)*.95;S.money+=v;return LAND_KINDS[p.kind].name+'을 팔았다 ('+sgW(v)+')'}}}]},
+      {t:'한 필지를 팔아 정리한다',fx:{run:()=>{const p=landRemove();const v=parcelVal(p)*.95;S.money+=v;return LAND_KINDS[p.kind].name+josa(LAND_KINDS[p.kind].name,'을/를')+' 팔았다 ('+sgW(v)+')'}}}]},
  {id:'l-sib',slot:'가족',awayOK:true,who:'sib',cond:()=>S.land>=2,y:[1960,2075],title:'땅 좀 나누자',text:'따로 사는 형제 {subj}{subj:이/가} 부모님 땅이니 한 필지는 자기 몫이라고 한다.',
   ch:[{t:'한 필지를 떼어 준다',fx:{aff:4,grudge:-3,run:()=>{const p=landRemove();return LAND_KINDS[p.kind].name+' 한 필지를 형제에게 넘겼다'}}},
       {t:'판 돈을 나눠 준다',fx:{aff:2,grudge:-1,run:()=>{const p=landRemove();const v=parcelVal(p)*.95;S.money+=v/2;return '땅을 팔아 절반을 나눠 주었다 ('+sgW(v/2)+' 남음)'}}},
@@ -2014,10 +2035,10 @@ const LAND_CARDS=[
   ch:[{t:'빌린다',fx:{run:()=>{const v=landTotal()*.35;S.money+=v;S.landDebt=(S.landDebt||0)+v;S.chains.push({id:'l-loan2',at:S.year+5,subj:null,nb:null});return '땅 담보로 '+wonY(v)+'을 빌렸다'}}},{t:'땅은 건드리지 않는다',fx:{}}]},
  {id:'l-loan2',slot:'집안',chainOnly:true,title:'담보 대출 만기',text:'땅 담보로 빌린 돈의 만기가 돌아왔다.',
   ch:[{t:'갚는다',fx:{run:()=>{const v=(S.landDebt||0)*1.35;S.money-=v;S.landDebt=0;return '이자까지 갚았다 ('+sgW(-v)+')'}}},
-      {t:'갚을 돈이 없으면 땅을 넘긴다',fx:{run:()=>{const v=(S.landDebt||0)*1.35;if(S.money>=v){S.money-=v;S.landDebt=0;return '다행히 갚았다 ('+sgW(-v)+')'}const p=landRemove();S.landDebt=0;return LAND_KINDS[p.kind].name+'을 은행에 넘겼다'}}}]},
+      {t:'갚을 돈이 없으면 땅을 넘긴다',fx:{run:()=>{const v=(S.landDebt||0)*1.35;if(S.money>=v){S.money-=v;S.landDebt=0;return '다행히 갚았다 ('+sgW(-v)+')'}const p=landRemove();S.landDebt=0;return LAND_KINDS[p.kind].name+josa(LAND_KINDS[p.kind].name,'을/를')+' 은행에 넘겼다'}}}]},
  {id:'l-garden',slot:'동네',y:[2035,2075],cond:()=>(S.lands||[]).some(p=>!p.bld),nb:'any',title:'빈 땅의 쓰임',text:'놀고 있는 우리 땅을 동네 텃밭이나 쉼터로 쓰자는 이야기가 나왔다.',
   ch:[{t:'동네에 내준다',fx:{jAll:2,run:()=>{routeAdd('jeong',4);routeAdd('root',1);return '빈 땅이 동네 텃밭이 됐다'}}},{t:'세를 받고 빌려준다',fx:{run:()=>{const p=S.lands.find(p=>!p.bld);p.lease=true;return '땅을 세놓았다'}}},{t:'그냥 둔다',fx:{}}]},
- {id:'l-inherit',slot:'시대',rep:true,y:[1953,2075],cond:()=>R()<.25,title:'싸게 나온 땅',text:'급하게 이사 가는 집이 땅을 싸게 내놓았다.',
+ {id:'l-inherit',slot:'시대',y:[1953,2110],cond:()=>R()<.5,title:'싸게 나온 땅',text:'급하게 이사 가는 집이 땅을 싸게 내놓았다.',
   ch:[{t:'산다',fx:{run:()=>{const p=landAdd();const c=parcelVal(p)*.8;if(S.money<c){landRemove(S.lands.length-1);return '돈이 모자라 사지 못했다'}S.money-=c;return LAND_KINDS[p.kind].name+' 한 필지를 싸게 샀다 ('+sgW(-c)+')'}}},{t:'남의 급한 사정을 이용하지 않는다',fx:{gap:{f:-1}}}]}
 ];
 
@@ -2044,7 +2065,7 @@ const JB_CARDS=[
       {t:'웃어넘긴다',fx:{face:-2,jb:{insult:true}}}]},
  {id:'jb-2',slot:'집안',major:true,y:[1962,1975],cond:()=>S.jb&&S.jb.kind==='none'&&!S.jb.bon,title:'호적의 빈칸',
   text:()=>'동사무소에서 피란민 호적을 새로 정리한다. 본관 칸이 비어 있다. 기억하는 고향은 '+S.jb.hometown+'. 고향 기억 조각은 '+S.frag+'개다.',
-  ch:[{t:'기억대로 고향 이름을 적는다',fx:ctx=>S.frag>=2?{jb:{bon:S.jb.hometown,kind:'true',pagesAdd:1},recRep:'호적에 고향 '+S.jb.hometown+'을 본관으로 적었다',recW:3}:{jb:{bon:S.jb.hometown,kind:'fake'},recRep:'기억이 흐린 채로 호적에 본관을 적었다',recW:2}},
+  ch:[{t:'기억대로 고향 이름을 적는다',fx:ctx=>S.frag>=2?{jb:{bon:S.jb.hometown,kind:'true',pagesAdd:1},recRep:'호적에 고향 '+S.jb.hometown+josa(S.jb.hometown,'을/를')+' 본관으로 적었다',recW:3}:{jb:{bon:S.jb.hometown,kind:'fake'},recRep:'기억이 흐린 채로 호적에 본관을 적었다',recW:2}},
       {t:'흔한 본관을 적어 둔다',fx:{jb:{bon:'김해',kind:'fake'},face:2,recRep:'호적에 남들 많이 쓰는 본관을 적어 넣었다',recW:2}},
       {t:'빈칸으로 둔다',fx:{gap:{f:-1}}}]},
  {id:'jb-3',slot:'집안',major:true,y:[1970,1990],cond:()=>S.jb&&(S.jb.kind==='none'||S.jb.kind==='fake')&&S.face>=20,title:'종친회에서 온 사람',
@@ -2065,8 +2086,8 @@ const JB_CARDS=[
       {t:'끝까지 우긴다',fx:{rnd:[{p:.5,fx:{face:-12,flag:'exposed',jb:{kind:'none',bon:null,pages:0}},msg:'온 동네에 소문이 났다'},{p:.5,fx:{face:-2},msg:'겨우 넘어갔다. 하지만 사돈댁 눈빛이 달라졌다'}]}}]},
  {id:'jb-5',slot:'집안',major:true,y:[1965,2010],cond:()=>S.jb&&S.jb.kind==='none'&&(S.face>=30||S.flags.ourJokbo),title:'우리부터 쓰는 족보',
   text:()=>'남의 족보를 빌릴 게 아니라, 피란 내려온 그해부터 우리 족보를 새로 쓰자는 말이 나왔다. 본관은 무엇으로 할까?',
-  ch:[{t:()=>'고향 '+S.jb.hometown+'을 본관으로 삼는다',fx:()=>({jb:{bon:S.jb.hometown,kind:S.frag>=3?'true':'ours',pagesAdd:2},flag:'ourJokbo',recRep:'고향 '+S.jb.hometown+'을 본관으로 삼아 우리 족보 첫 장을 썼다',recW:5})},
-      {t:()=>'이 동네 '+placeName()+'를 본관으로 삼는다',fx:()=>({jb:{bon:placeName(),kind:'ours',pagesAdd:2},flag:'ourJokbo',gap:{f:-1},recRep:placeName()+' '+S.sur+'씨의 시조가 되었다',recW:5})},
+  ch:[{t:()=>'고향 '+S.jb.hometown+josa(S.jb.hometown,'을/를')+' 본관으로 삼는다',fx:()=>({jb:{bon:S.jb.hometown,kind:S.frag>=3?'true':'ours',pagesAdd:2},flag:'ourJokbo',recRep:'고향 '+S.jb.hometown+josa(S.jb.hometown,'을/를')+' 본관으로 삼아 우리 족보 첫 장을 썼다',recW:5})},
+      {t:()=>'이 동네 '+placeName()+josa(placeName(),'을/를')+' 본관으로 삼는다',fx:()=>({jb:{bon:placeName(),kind:'ours',pagesAdd:2},flag:'ourJokbo',gap:{f:-1},recRep:placeName()+' '+S.sur+'씨의 시조가 되었다',recW:5})},
       {t:'아직 때가 아니다',fx:{}}]},
  {id:'jb-6',slot:'집안',major:true,y:[1990,2025],cond:()=>S.jb&&S.jb.kind!=='none'&&S.jb.pages>=1&&!S.jb.womenAsked,title:'딸들의 이름',
   text:'족보를 새로 정리하는데, 옛 법대로라면 딸은 이름 없이 사위 이름만 올라간다. 딸들이 묻는다. "우리는 이 집 사람이 아니에요?"',
@@ -2182,7 +2203,7 @@ const ERA_DEF={
    B:{w:()=>avgJ()>=2?2:1,text:'흉년이지만 골목 사람들이 쌀을 조금씩 모아, 굶는 집 없이 넘겼다.',fx:{money:-3,jAll:1}},
    C:{w:()=>1,text:'구호물자 배급 줄이 동네 끝까지 섰다. 우리 집도 밀가루 한 포대를 받았다.',fx:{money:4,face:-1}}}},
  april19:{title:'4월의 거리',kicker:'1960년 4월',headline:'부정선거 규탄 시위 전국 확산, 대통령 하야',who:'any',wc:p=>BK(p)&&age(p)>=15&&age(p)<=30&&p.id!==S.repId,v:{
-   A:{w:c=>c.subj?1.5:0,text:'3월 선거가 부정이었다며 학생들이 거리로 나섰다. {subj}{subj:도} 친구들과 함께 나갔다가 밤늦게야 돌아왔다. 4월 말, 대통령이 물러났다.',fx:{grudge:-1,pers:{모험:1},rec:'1960년 4월, 친구들과 거리에 나섰다',recW:3}},
+   A:{w:c=>c.subj?1.5:0,text:'3월 선거가 부정이었다며 학생들이 거리로 나섰다. {subj}도 친구들과 함께 나갔다가 밤늦게야 돌아왔다. 4월 말, 대통령이 물러났다.',fx:{grudge:-1,pers:{모험:1},rec:'1960년 4월, 친구들과 거리에 나섰다',recW:3}},
    B:{w:()=>S.tradeY>0?1.5:.6,text:'시위대와 경찰이 맞서는 날이 이어지며 시장이 며칠씩 문을 닫았다. 4월 말, 대통령이 물러났다는 방송이 나왔다.',fx:{money:-3}},
    C:{w:()=>1,text:'골목 사람들이 라디오 앞에 모여 숨죽여 소식을 들었다. 4월 말, 대통령이 물러났다. 어른들은 이제 좀 나아지려나 하고 중얼거렸다.',fx:{jAll:1}}}},
  may16:{title:'새벽 방송',kicker:'1961년 5월',headline:'군 장교들 정변, 군사정부 수립',v:{
@@ -2238,7 +2259,7 @@ const ERA_DEF={
    B:{w:c=>c.subj?1:0,text:'방송을 보고 친척이라는 사람이 찾아왔다. 돈을 빌려 가더니 연락이 끊겼다.',fx:{money:-10,rec:'친척이라던 사람에게 돈을 떼였다',recW:3}},
    C:{w:()=>1,text:'방송국 앞에 사람들이 줄을 섰다. 집집마다 텔레비전 앞에서 함께 울었다. 우리 집은 끝내 찾던 얼굴을 만나지 못했다.',fx:{affAll:-1,recRep:'이산가족 찾기 방송을 밤새 지켜봤다',recW:2}}}},
  june87:{title:'6월의 거리',kicker:'1987년 6월',headline:'대통령 직선제 개헌 수용',who:'any',wc:p=>BK(p)&&age(p)>=18&&age(p)<=35&&p.id!==S.repId,v:{
-   A:{w:c=>c.subj?1.6:0,text:'최루탄 연기 속에 학생과 넥타이 맨 회사원들이 함께 거리를 메웠다. {subj}{subj:도} 그 속에 있었다. 6월 말, 대통령 직선제를 받아들인다는 발표가 나왔다.',fx:{pers:{사교:1},rec:'1987년 6월, 거리의 사람들 속에 있었다',recW:3}},
+   A:{w:c=>c.subj?1.6:0,text:'최루탄 연기 속에 학생과 넥타이 맨 회사원들이 함께 거리를 메웠다. {subj}도 그 속에 있었다. 6월 말, 대통령 직선제를 받아들인다는 발표가 나왔다.',fx:{pers:{사교:1},rec:'1987년 6월, 거리의 사람들 속에 있었다',recW:3}},
    B:{w:()=>S.tradeY>0?1.4:.5,text:'가게 앞까지 최루탄 연기가 밀려와 한동안 장사를 공쳤다. 6월 말, 대통령 직선제가 받아들여졌다.',fx:{money:-3}},
    C:{w:()=>1,text:'퇴근길 버스에서 사람들이 경적을 울리며 박수를 쳤다. 대통령을 직접 뽑게 됐다는 소식이었다.',fx:{jAll:1}}}},
  olympic:{title:'서울올림픽',kicker:'1988년 가을',headline:'서울올림픽 개막',v:{
@@ -2278,7 +2299,7 @@ const ERA_DEF={
    B:{w:()=>1,text:'수학여행 가던 학생들을 태운 배가 가라앉았다. 가게 문에 노란 리본을 달았다. 온 나라가 오래 슬퍼했다.',fx:{jAll:1}},
    C:{w:()=>1,text:'배가 가라앉은 뒤로 아이들 수학여행과 행사가 줄줄이 취소됐다. 식구들은 한동안 말이 없었다.',fx:{gap:{s:-1}}}}},
  candle:{title:'촛불의 겨울',kicker:'2016~2017년',headline:'광장에 촛불, 헌법재판소 대통령 파면 결정',who:'any',wc:p=>BK(p)&&age(p)>=16,v:{
-   A:{w:c=>c.subj?1.2:0,text:'겨울 내내 주말마다 광장에 촛불이 모였다. {subj}{subj:도} 촛불을 들고 나갔다. 이듬해 봄, 헌법재판소가 대통령 파면을 결정했다.',fx:{rec:'그해 겨울 광장에서 촛불을 들었다',recW:2}},
+   A:{w:c=>c.subj?1.2:0,text:'겨울 내내 주말마다 광장에 촛불이 모였다. {subj}도 촛불을 들고 나갔다. 이듬해 봄, 헌법재판소가 대통령 파면을 결정했다.',fx:{rec:'그해 겨울 광장에서 촛불을 들었다',recW:2}},
    B:{w:()=>1,text:'광장 소식이 매주 이어졌다. 명절 밥상에서 식구들끼리 생각이 달라 한동안 말이 줄었다. 이듬해 봄, 대통령 파면 결정이 내려졌다.',fx:{affAll:-1}},
    C:{w:()=>S.tradeY>0?1:.5,text:'주말마다 사람이 몰려 가게가 바빴다. 이듬해 봄, 대통령 파면 결정이 내려졌다.',fx:{money:3}}}},
  covid:{title:'멈춘 거리',kicker:'2020년',headline:'코로나19 대유행, 사회적 거리두기',v:{
@@ -4963,7 +4984,7 @@ const CARDS_I=[
       {t:'다른 일도 겸하라고 한다',fx:{money:2,aff:-1,grudge:1}},
       {t:'큰 기회에 걸어 보라며 밀어 준다 (6)',need:{money:6},fx:{money:-6,aff:1,pers:{모험:1},chain:{id:'i-059b',in:2}}}]},
  {id:'i-059b',slot:'가족',chainOnly:true,who:'any',wc:p=>!!p.f.artsPro,title:'큰 무대',
-  text:c=>{const s=c&&c.subj&&c.subj.f&&c.subj.f.dream==='운동';return '두 해 전 식구들이 밀어 준 {subj}의 '+(s?'큰 시합':'큰 무대')+'이 오늘이다. 결과에 따라 앞길이 달라진다.'},
+  text:c=>{const s=c&&c.subj&&c.subj.f&&c.subj.f.dream==='운동';return '두 해 전 식구들이 밀어 준 {subj}의 '+(s?'큰 시합이':'큰 무대가')+' 오늘이다. 결과에 따라 앞길이 달라진다.'},
   ch:[{t:'온 식구가 가서 본다 (2)',need:{money:2},fx:{money:-2,affAll:1,rnd:[{p:.4,fx:{money:8,face:1,rec:'큰 무대에서 이름을 알렸다',recW:3},msg:'박수가 오래 이어졌다. 여기저기서 연락이 왔다'},{p:.6,fx:{aff:-1},msg:'기대만큼은 아니었다. 그래도 끝까지 해냈다'}]}},
       {t:'결과만 기다린다',fx:{rnd:[{p:.35,fx:{money:8,rec:'큰 무대에서 이름을 알렸다',recW:3},msg:'좋은 소식이 전화로 왔다'},{p:.65,fx:{aff:-1,grudge:1},msg:'혼자 결과를 듣고 늦게 들어왔다'}]}}]},
 
