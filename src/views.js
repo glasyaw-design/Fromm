@@ -85,7 +85,7 @@ function hdr(){
   return `<header class="top">
    <div class="brand"><h1>족보 없는 집</h1><div class="sub">${esc(S.sur)}씨네 · ${S.curGen}세대${r?' · 대표 '+esc(r.name):''}</div></div>
    ${S.phase==='title'?'':`<div class="date"><span class="yr num">${esc(yr)}</span><span class="season">${seasonOf()}</span><span class="lbl">턴 ${S.turn}</span></div>`}
-   <span style="margin-left:auto;display:flex;gap:6px">${S.phase!=="title"?'<button class="btn small-btn" data-act="treeBig">가계도</button>':''}${typeof cloudOn==='function'&&cloudOn()?`<button class="btn small-btn" data-act="cloudOpen">${CLOUD.user?'저장':'로그인'}</button>`:''}<button class="btn small-btn" data-act="help">도움말</button></span>
+   <span style="margin-left:auto;display:flex;gap:6px">${S.phase!=="title"?'<button class="btn small-btn" data-act="treeBig">가계도</button>':''}${typeof cloudOn==='function'?`<button class="btn small-btn" data-act="cloudOpen">${cloudOn()?(CLOUD.user?'저장':'로그인'):'저장'}</button>`:''}<button class="btn small-btn" data-act="help">도움말</button></span>
   </header>${['title','ending'].includes(S.phase)?'':mhud()+`<div class="hud-wrap ${UI.hudOpen?'open':''}">${hud()}</div>`}`;
 }
 
@@ -240,7 +240,7 @@ function titleView(){
     <div class="lbl" style="margin-top:12px">출발 동네</div><div class="opts3">${opt('town',TOWNS,S.town)}</div>
     <div class="lbl" style="margin-top:12px">가문 내력</div><div class="opts3">${opt('lineage',LINEAGES,S.lineage)}</div>
     ${m.huns.length?`<div class="lbl" style="margin-top:12px">물려받은 가훈 (앞선 회차에서 남긴 것)</div><div class="opts3"><button class="optc ${!S.hun?'on':''}" data-act="setOpt" data-a="hun" data-b=""><b>없음</b><small>가훈 없이 시작</small></button>${m.huns.map(k=>`<button class="optc ${S.hun===k?'on':''}" data-act="setOpt" data-a="hun" data-b="${k}"><b>${esc(HUNS[k].name)}</b><small>${esc(HUNS[k].desc)}</small></button>`).join('')}</div>`:''}
-    <div class="actions"><button class="btn go" data-act="start">시작한다</button><button class="btn" data-act="reroll">다른 집안으로</button>${hasSave?'<button class="btn" data-act="resume">이어하기</button>':''}${typeof cloudOn==='function'&&cloudOn()?`<button class="btn" data-act="cloudOpen">${CLOUD.user?'클라우드에서 불러오기':'로그인해서 이어하기'}</button>`:''}</div>
+    <div class="actions"><button class="btn go" data-act="start">시작한다</button><button class="btn" data-act="reroll">다른 집안으로</button>${hasSave?'<button class="btn" data-act="resume">이어하기</button>':''}${typeof cloudOn==='function'?`<button class="btn" data-act="cloudOpen">${cloudOn()?(CLOUD.user?'클라우드에서 불러오기':'로그인해서 이어하기'):'저장 파일 불러오기'}</button>`:''}</div>
    </div>
    <p class="small muted">완주 ${m.clears}번${m.titles.length?' · 얻은 칭호: '+m.titles.slice(-6).map(esc).join(', '):''}</p>
   </div>`;
