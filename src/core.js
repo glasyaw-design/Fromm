@@ -297,7 +297,7 @@ const FILLER={
  '동네':[
   {id:'f-N1',slot:'동네',rep:true,nb:'any',title:'골목 인사',text:()=>'{nb}{nb:과/와} '+(S.year<2030?'골목':'엘리베이터')+'에서 마주쳤다.',ch:[{t:'먹을 것을 나눈다',fx:{money:-1,nbj:1}},{t:'인사만 한다',fx:{}}]},
   {id:'f-N2',slot:'동네',rep:true,nb:'minj',title:'서먹한 이웃',text:'{nb}{nb:과/와} 요즘 말을 안 섞는다.',ch:[{t:'먼저 찾아간다',fx:{nbj:2,money:-1}},{t:'그냥 둔다',fx:{nbj:-1}}]},
-  {id:'f-N3',slot:'동네',rep:true,nb:'any',title:'빌려 간 물건',text:()=>'{nb}{nb:이/가} 빌려 간 '+(S.year<1980?'맷돌':S.year<2030?'사다리':'공구 상자')+'을 아직 안 돌려준다.',ch:[{t:'달라고 한다',fx:{nbj:-1}},{t:'모른 척한다',fx:{money:-1,nbj:1}}]},
+  {id:'f-N3',slot:'동네',rep:true,nb:'any',title:'빌려 간 물건',text:()=>'{nb}{nb:이/가} 빌려 간 '+(S.year<1980?'맷돌을':S.year<2030?'사다리를':'공구 상자를')+' 아직 안 돌려준다.',ch:[{t:'달라고 한다',fx:{nbj:-1}},{t:'모른 척한다',fx:{money:-1,nbj:1}}]},
   {id:'f-N4',slot:'동네',rep:true,nb:'maxj',title:'이웃 잔치',text:'{nb}에 좋은 일이 있어 떡을 돌렸다.',ch:[{t:'답례를 한다 (2)',need:{money:2},fx:{money:-2,nbj:2}},{t:'고맙다는 말만 한다',fx:{}}]}],
  '시대':[
   {id:'f-E1',slot:'시대',rep:true,title:'달라지는 세상',text:()=>S.year<1970?'라디오에서 나라가 바뀐다는 소식이 이어진다.':S.year<2000?'텔레비전 뉴스가 매일 새 물건, 새 동네 이야기를 한다.':S.year<2050?'새로 나온 기기를 다들 하나씩 들고 다닌다.':'새 기술 소식이 쏟아지지만 어른들은 따라가기 벅차다.',ch:[{t:'배워 본다 (1)',need:{money:1},fx:{money:-1,affAll:1}},{t:'하던 대로 산다',fx:{money:1}}]},
@@ -397,7 +397,7 @@ function applyFx(fx,ctx,out,opt){
   if(fx.comeHome&&sj&&sj.status==='away'){sj.status='home';sj.away=null;out.push(sj.name+josa(sj.name,'이/가')+' 다시 집으로 들어왔다');for(const q of S.people)if(q.alive&&q.status==='away'&&(q.id===sj.spouse||q.parents.includes(sj.id))&&q.away&&KIN_WHY.includes(q.away.why)){q.status='home';q.away=null;out.push(q.name+'도 함께 왔다')}}
   if(fx.jb&&S.jb){const j=fx.jb;for(const k in j){if(k==='pagesAdd'){S.jb.pages+=j[k];out.push('족보 '+j[k]+'쪽을 더 적었다 (모두 '+S.jb.pages+'쪽)')}else S.jb[k]=j[k]}
     if(j.bon!==undefined||j.kind)out.push('족보: '+jbKindText()+(S.jb.bon?' · '+jbBonText():''));if(j.kind==='bought')S.flags.bongwan=S.year;if(j.kind==='ours'||j.kind==='true')S.flags.ourJokbo=S.flags.ourJokbo||S.year}
-  if(fx.marry&&sj&&!sj.f.married){doMarry(sj,fx.marry,out);if(marryHome(sj)==='out'&&sj.status==='home'){moveOut(sj,'출가');out.push(sj.name+josa(sj.name,'은/는')+' 시댁으로 들어갔다')}}
+  if(fx.marry&&sj&&!sj.f.married){doMarry(sj,fx.marry,out);if(marryHome(sj)==='out'&&sj.status==='home'){moveOut(sj,'출가');out.push(sj.name+josa(sj.name,'은/는')+' 시댁으로 들어갔다')}familySync()}
   if(fx.official&&sj){sj.f.official=true;sj.slot='study'}
   if(fx.edu&&sj)sj.edu=Math.max(sj.edu,fx.edu);
   if(fx.die&&sj)killP(sj,out);
@@ -755,7 +755,17 @@ function forecast(){const yr=S.year,H=homeAlive(),pb=prod(yr)*PAY,F={work:0,pens
   F.tax=.15*Math.max(0,F.inc-35*pb)+.12*Math.max(0,F.inc-80*pb);
   F.spend=.2*Math.max(0,F.inc)+.02*Math.max(0,S.money);
   F.out=F.fee+F.base+F.crowd+F.care+F.house+F.upkeep+F.tax+F.spend;F.net=F.inc-F.out;return F}
-function simulate(years){
+/* 식구 자리 맞추기: 혼인해 들어온 사람은 짝을 따라가고, 어린아이는 부모를 따라간다 */
+const HOUSE_WHY=['출가','분가','갈라섬','의절','상경','타지','귀촌','사랑을 따라','부모 따라','이민','제 길'];
+function familySync(){
+  for(const p of S.people){if(!p.alive||p.inlaw)continue;const sp=p.spouse?P(p.spouse):null;if(!sp||!sp.alive||!sp.inlaw)continue;
+    if(p.status!=='home'&&p.away&&HOUSE_WHY.includes(p.away.why)&&sp.status==='home'){sp.status='away';sp.away={why:p.away.why,until:null}}
+    else if(p.status==='home'&&sp.status!=='home'&&sp.away&&HOUSE_WHY.includes(sp.away.why)){sp.status='home';sp.away=null}}
+  for(const c of S.people){if(!c.alive||c.inlaw||age(c)>=18)continue;const ps=c.parents.map(P).filter(q=>q&&q.alive);if(!ps.length)continue;
+    const away=ps.every(q=>q.status!=='home'&&q.away&&['출가','분가','갈라섬','의절','이민','귀촌'].includes(q.away.why));
+    if(away&&c.status==='home'){c.status='away';c.away={why:'부모 따라',until:null}}
+    else if(!away&&ps.some(q=>q.status==='home')&&c.status!=='home'&&c.away&&c.away.why==='부모 따라'){c.status='home';c.away=null}}}
+function simulate(years){familySync();
   const rp={summer:S.springM!=null?S.money-S.springM:0,fcNet:S.springF,y0:S.year,y1:S.year+years-1,inc:{},fee:0,live:0,care:0,start:S.money,startNW:netWorth(),notes:[],major:S.newsY.slice(),slotName:{},births:[],grow:{},erosion:0,interest:0};
   for(const p of S.people)p.grow={};
   for(let i=0;i<years;i++){
@@ -894,7 +904,7 @@ function simulate(years){
       const a=yr-m.birth;if(a<20||a>41)continue;const kids=S.people.filter(c=>c.parents.includes(m.id)).length;if(kids>=maxK)continue;
       let pr=bp;if(kids===0&&a>=26)pr*=2.6;if(kids===0&&a>=32)pr*=1.6;if(kids===1&&a>=30&&yr>=1990)pr*=1.3;
       if(R()<pr){const sex=R()<.5?'m':'f';const gen=Math.max(m.gen,sp.gen)+1;
-        const c=mkPerson({sex,birth:yr,gen,parents:[m.id,sp.id],aff:3});c.f.newborn=m.status==='home';
+        const c=mkPerson({sex,birth:yr,gen,parents:[m.id,sp.id],aff:3,sur:sp.sur||S.sur});c.f.newborn=m.status==='home';
         if(m.status!=='home'){c.status='away';c.away={why:m.away.why,until:null};rp.notes.push(sp.name+'·'+m.name+' 부부('+m.away.why+')에게 '+(sex==='m'?'아들':'딸')+' '+c.name+josa(c.name,'이/가')+' 태어났다');continue}
         rp.births.push({id:c.id,parents:sp.name+'·'+m.name,y:yr});
         const first=!S.people.some(q=>q.id!==c.id&&q.gen===gen&&!q.inlaw);if(first&&gen>=2)rp.major.push({major:true,t:(gen-1)+'세대의 첫 아이가 태어났다'})}
@@ -1106,7 +1116,7 @@ function agendaView(a){
       a.offers.forEach((o,k)=>opts.push({k:'buy'+k,t:LAND_KINDS[o.kind].name+' 한 필지 산다 ('+wonY(o.price)+')',need:{money:o.price}}));
       if(a.offers.length>=2){const t=a.offers.reduce((x,o)=>x+o.price,0);opts.push({k:'buyall',t:'나온 땅을 모두 산다 ('+wonY(t)+')',need:{money:t}})}
       own.forEach((p,k)=>{if(k<4)opts.push({k:'sell'+k,t:landDesc(p)+' 판다 (+'+wonY((parcelVal(p)+(p.bld?bldVal():0))*.95)+')'})});
-      const ls=own.findIndex(p=>!p.lease&&!p.bld);if(ls>=0)opts.push({k:'lease'+ls,t:LAND_KINDS[own[ls].kind].name+'을 세놓는다'});
+      const ls=own.findIndex(p=>!p.lease&&!p.bld);if(ls>=0)opts.push({k:'lease'+ls,t:LAND_KINDS[own[ls].kind].name+josa(LAND_KINDS[own[ls].kind].name,'을/를')+' 세놓는다'});
       const bd=own.findIndex(p=>LAND_KINDS[p.kind].build&&!p.bld);if(bd>=0&&S.year>=1965)opts.push({k:'build'+bd,t:'상가 건물을 올린다 ('+wonY(bldVal())+')',need:{money:bldVal()}});
       opts.push({k:'no',t:'그대로 둔다'});
       return {title:'땅',text:'가진 땅 '+own.length+'필지 ('+wonY(landTotal())+')'+(own.length?': '+own.map(landDesc).join(', '):'')+'. 올해 나온 땅 '+a.offers.length+'필지. 세놓으면 해마다 세가 들어오고, 건물을 올리면 월세를 받는다.',opts}}
@@ -1118,7 +1128,7 @@ function agendaView(a){
       opts:a.opts.filter(k=>BIZ[k]).map(k=>({k,t:BIZ[k].n(S.year)+' ('+wonY(c)+') — '+BIZ[k].d+' · 중요한 재주: '+Object.keys(BIZ[k].w).sort((x,z)=>BIZ[k].w[z]-BIZ[k].w[x]).slice(0,2).join('·'),need:{money:c}})).concat([{k:'no',t:'하던 장사를 계속한다'}])}}
     case 'arts':{const A=ARTS[p.f.dream],a=age(p),y=S.year,k=A.tal;const lv=p.f.artsLv||0;
       const said={음악:y<1975?'라디오 노래를 하루 종일 따라 부르고, 밥상을 두드리며 박자를 맞춘다':'남의 집 피아노 소리만 들리면 창가에 붙어 선다',미술:'공책마다 그림이 가득하다. 교과서 귀퉁이에도 사람 얼굴이 그려져 있다',운동:'학교가 끝나면 날이 저물 때까지 운동장에서 안 들어온다',연기:'식구들 앞에서 연속극 흉내를 내고 노래를 부른다'}[p.f.dream];
-      const base={title:p.name+'의 꿈 — '+A.dream+' ('+a+'세)',text:p.name+josa(p.name,'은/는')+' '+said+'. '+A.dream+'을 하고 싶다고 한다. '+k+' '+Math.round(p.tal[k]*10)+(p.f.desireKnown?' · 바라는 것: '+p.desire:'')+'.'};
+      const base={title:p.name+'의 꿈 — '+A.dream+' ('+a+'세)',text:p.name+josa(p.name,'은/는')+' '+said+'. '+A.dream+josa(A.dream,'을/를')+' 하고 싶다고 한다. '+k+' '+Math.round(p.tal[k]*10)+(p.f.desireKnown?' · 바라는 것: '+p.desire:'')+'.'};
       if(a<=14||lv===0)return {...base,opts:[{k:'lesson',t:A.lesson(y)+'에 보낸다 ('+wonY(cm(4))+')',need:{money:cm(4)}},{k:'self',t:'돈 안 드는 방법을 찾아 준다'},{k:'later',t:'공부가 먼저다'}]};
       return {...base,text:base.text+' 배운 지 '+(y-(p.f.artsStart||y))+'년째다.',opts:[{k:'pro',t:A.school(y)+(p.f.dream==='운동'?'으로 키운다':'에 보낸다')+' ('+wonY(cm(12))+')',need:{money:cm(12)}},{k:'contest',t:'대회에 나가 본다 ('+wonY(cm(3))+')',need:{money:cm(3)}},{k:'hobby',t:'취미로 남기고 제 앞가림부터'},{k:'stop',t:'이제 그만두게 한다'}]}}
     case 'buy':{const L=buyList();const t=wealthTier();return {title:'살림 장만',text:'형편: '+WEALTH[t]+' (모아 둔 돈 '+wonY(S.money)+'). 형편이 좋을수록 고를 수 있는 것이 늘어난다. 여러 개를 사도 된다.',
@@ -1170,6 +1180,7 @@ function runAgenda(ai,k){
       if(k==='later'){out.push('혼사를 미뤘다');break}
       doMarry(p,k,out,a.cands&&a.cands[k]);{const mh=marryHome(p);const sp=P(p.spouse);
         if(mh==='out'){moveOut(p,'출가');out.push(p.name+josa(p.name,'은/는')+' '+(S.year<1980?'출가외인이라며 ':'')+'시댁으로 들어갔다. 명절이면 친정에 다니러 온다');S.agendaStep=null;break}
+        if(mh==='with'){familySync();out.push(p.name+' 부부는 '+(p.away?p.away.why+'해 ':'')+'사는 곳에서 살림을 차렸다');S.agendaStep=null;break}
         if(mh==='son-in-law'){out.push('집에 남을 자식이 없어 '+(sp?sp.name+josa(sp.name,'을/를')+' ':'')+'데릴사위로 들였다');S.agendaStep=null;break}
         if(mh==='in'){if(sp){sp.status='home';sp.away=null}out.push(sp?sp.name+josa(sp.name,'이/가')+' 우리 집 며느리로 들어왔다':'');S.agendaStep=null;break}}
       S.agendaStep={kind:'live',pid:p.id};S.agendaRes[ai]={title:v.title,msgs:out,partial:true};return;
@@ -1200,7 +1211,7 @@ function runAgenda(ai,k){
       else if(k==='later'){p.grudge=clamp(p.grudge+1,0,10);if(R()<.4){p.f.artsDone=true;out.push(p.name+josa(p.name,'은/는')+' 꿈을 접었다 (원한 +1)')}else out.push(p.name+josa(p.name,'이/가')+' 서운해한다 (원한 +1)')}
       else if(k==='pro'){S.money-=cm(12);up(1.2);p.cap[kk]=Math.min(10,p.cap[kk]+1);p.f.artsPro=true;p.f.artsDone=true;p.slot='study';p.aff=clamp(p.aff+3,-10,10);p.grudge=Math.max(0,p.grudge-2);routeAdd('free',3);p.recs.push({y:S.year,t:A.school(S.year)+'에 가 '+A.dream+'의 길을 걸었다',w:3});out.push(p.name+josa(p.name,'이/가')+' '+A.dream+'의 길로 간다. '+kk+' +12, 한계 +10, 자유의 길에 보탬')}
       else if(k==='contest'){S.money-=cm(3);up(.4);const win=R()<.15+p.tal[kk]*.06;if(win){S.face=clamp(S.face+2,0,100);p.aff=clamp(p.aff+2,-10,10);p.recs.push({y:S.year,t:A.dream+' 대회에서 상을 받았다',w:2});out.push(p.name+josa(p.name,'이/가')+' 대회에서 상을 받았다! 체면 +2')}else{p.tal.끈기=Math.min(p.cap.끈기,p.tal.끈기+.5);out.push(p.name+josa(p.name,'은/는')+' 상은 못 받았지만 다시 해 보겠다고 한다')}}
-      else if(k==='hobby'){p.f.artsDone=true;p.f.artsHobby=true;out.push(p.name+josa(p.name,'은/는')+' '+A.dream+'을 취미로 이어 간다')}
+      else if(k==='hobby'){p.f.artsDone=true;p.f.artsHobby=true;out.push(p.name+josa(p.name,'은/는')+' '+A.dream+josa(A.dream,'을/를')+' 취미로 이어 간다')}
       else{p.f.artsDone=true;p.grudge=clamp(p.grudge+2,0,10);p.aff=clamp(p.aff-1,-10,10);out.push(p.name+josa(p.name,'이/가')+' 크게 서운해한다 (원한 +2)')}
       break}
     case 'buy':{if(k==='no'){out.push('살림은 그대로 둔다');break}const it=BUY_ITEMS.find(x=>x.id===k);if(!it)break;S.money-=buyCost(it);(S.bought=S.bought||{})[it.id]=S.year;out.push(it.n(S.year)+josa(it.n(S.year),'을/를')+' 장만했다');it.fx(out);
@@ -1283,6 +1294,12 @@ function afterAutumn(){
     }
     return startInherit();
   }
+  if(!homeAlive().length&&!S.people.some(p=>p.alive&&!p.inlaw)&&(S.adopted||0)<2){
+    /* 핏줄이 모두 끊겼다: 먼 친척 집에서 양자를 들여 대를 잇는다 */
+    S.adopted=(S.adopted||0)+1;const c=mkPerson({sex:R()<.5?'m':'f',birth:S.year-ri(18,26),gen:S.curGen+1,adult:true,aff:1});c.f.adopted=true;
+    c.recs.push({y:S.year,t:'핏줄이 끊긴 집에 먼 친척 집에서 양자로 들어와 대를 이었다',w:4});S.repId=c.id;
+    S.newsY.push({major:true,t:c.name+josa(c.name,'이/가')+' 양자로 들어와 대를 잇는다'});
+    S.banner='집안에 핏줄이 아무도 남지 않아, 먼 친척 집 '+c.name+josa(c.name,'을/를')+' 양자로 들였다.'}
   if(!homeAlive().length){const b=recallHome();if(!b)return endGame('scatter');S.repId=b.id;S.repDied=false;S.banner=(S.banner?S.banner+' ':'')+'빈집이 된 우리 집에 '+b.name+josa(b.name,'이/가')+' 돌아와 대표를 맡았다.'}
   if(S.repDied){
     S.repDied=false;const old=rep();const c=repCands();
@@ -1384,7 +1401,7 @@ function inhConfirm(){
   }
   {const gone=new Set();for(const a of I.assets)if(a.land&&a.goneIdx)a.goneIdx.forEach(i=>gone.add(i));S.lands=(S.lands||[]).filter((p,i)=>!gone.has(i));landSync()}
   if(jesaId){const j=P(jesaId);if(j)j.recs.push({y:S.year,t:'부모의 제사를 맡았다',w:2})}
-  I.done=true;
+  I.done=true;familySync();
 }
 function inhNext(){
   const r=rep();if(r&&r.alive&&r.status==='home'&&r.gen>S.curGen)return finishGen();
@@ -1393,6 +1410,10 @@ function inhNext(){
   if(repCands().filter(p=>p.gen>S.curGen).length){S.phase='chooseRep';return}
   if(r&&r.alive&&r.status==='home')return finishGen();
   const b=recallHome();if(b){S.repId=b.id;S.banner=b.name+josa(b.name,'이/가')+' 집으로 돌아와 대표를 맡았다.';return finishGen()}
+  /* 어린 자식만 남았다: 맏이가 이름만 대표를 잇고, 먼 친척 어른이 들어와 돌봐 준다 */
+  const young=homeAlive().filter(p=>!p.inlaw&&p.gen>S.curGen).sort((a,b)=>a.birth-b.birth)[0];
+  if(young){S.repId=young.id;const g=mkPerson({sex:'f',birth:S.year-ri(45,58),gen:S.curGen,adult:true,inlaw:true,aff:2,sur:pick(SURN.filter(x=>x!==S.sur))});g.f.guardian=true;g.slot='home';
+    young.recs.push({y:S.year,t:'어린 나이에 집안을 물려받았다',w:3});S.banner='부모를 여읜 '+young.name+'('+age(young)+'세)'+josa(young.name,'이/가')+' 집을 잇는다. 먼 친척 '+g.name+josa(g.name,'이/가')+' 들어와 아이들을 돌본다.';return finishGen()}
   endGame('scatter');
 }
 function chooseRep(id){
@@ -1446,7 +1467,7 @@ function routeRaw(){
     root:(S.jb?S.jb.pages*1.5+(S.jb.kind==='true'?6:S.jb.kind==='ours'?5:S.jb.kind==='bought'?1:0)+(S.jb.women?2:0)+(S.jb.adopted?2:0)+(S.jb.preface?3:0):0)+S.frag+(S.flags.reunion?5:0)+(S.flags.homecoming?5:0)+(S.flags.ourJokbo?4:0)+(S.flags.bongwan?2:0)+(S.place.kind==='origin'?3:0)+b.filter(p=>p.alive&&p.status==='home').length+(T.root||0),
     free:b.filter(p=>p.f.freed).length*2+b.filter(p=>p.aff>=6&&p.grudge<=1).length+(T.free||0)-b.filter(p=>p.away&&p.away.why==='의절').length*3};
 }
-const ROUTE_TH={wealth:[2,4,8,15,30],learn:[6,14,24,36,50],jeong:[40,70,100,135,180],craft:[10,20,30,42,58],root:[16,28,40,52,66],free:[6,14,24,34,46]};
+const ROUTE_TH={wealth:[.6,1.6,4,10,25],learn:[6,14,24,36,50],jeong:[40,70,100,135,180],craft:[10,20,30,42,58],root:[16,28,40,52,66],free:[6,14,24,34,46]};
 function routeScores(){const raw=routeRaw();const sc={};for(const k in raw){const th=ROUTE_TH[k];let n=0;for(const t of th)if(raw[k]>=t)n++;sc[k]=n}return sc}
 function routeAdd(k,v){S.routeAcc=S.routeAcc||{};S.routeAcc[k]=(S.routeAcc[k]||0)+v}
 function titlesOf(){

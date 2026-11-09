@@ -356,7 +356,7 @@ const CARDS_I=[
       {t:'다른 일도 겸하라고 한다',fx:{money:2,aff:-1,grudge:1}},
       {t:'큰 기회에 걸어 보라며 밀어 준다 (6)',need:{money:6},fx:{money:-6,aff:1,pers:{모험:1},chain:{id:'i-059b',in:2}}}]},
  {id:'i-059b',slot:'가족',chainOnly:true,who:'any',wc:p=>!!p.f.artsPro,title:'큰 무대',
-  text:c=>{const s=c&&c.subj&&c.subj.f&&c.subj.f.dream==='운동';return '두 해 전 식구들이 밀어 준 {subj}의 '+(s?'큰 시합':'큰 무대')+'이 오늘이다. 결과에 따라 앞길이 달라진다.'},
+  text:c=>{const s=c&&c.subj&&c.subj.f&&c.subj.f.dream==='운동';return '두 해 전 식구들이 밀어 준 {subj}의 '+(s?'큰 시합이':'큰 무대가')+' 오늘이다. 결과에 따라 앞길이 달라진다.'},
   ch:[{t:'온 식구가 가서 본다 (2)',need:{money:2},fx:{money:-2,affAll:1,rnd:[{p:.4,fx:{money:8,face:1,rec:'큰 무대에서 이름을 알렸다',recW:3},msg:'박수가 오래 이어졌다. 여기저기서 연락이 왔다'},{p:.6,fx:{aff:-1},msg:'기대만큼은 아니었다. 그래도 끝까지 해냈다'}]}},
       {t:'결과만 기다린다',fx:{rnd:[{p:.35,fx:{money:8,rec:'큰 무대에서 이름을 알렸다',recW:3},msg:'좋은 소식이 전화로 왔다'},{p:.65,fx:{aff:-1,grudge:1},msg:'혼자 결과를 듣고 늦게 들어왔다'}]}}]},
 

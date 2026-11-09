@@ -33,7 +33,7 @@ function landOffers(){const n=2+(R()<.5?1:0);const L=[];for(let i=0;i<n;i++){con
 const LAND_CARDS=[
  {id:'l-rumor',slot:'시대',rep:true,y:[1962,2008],nb:'maxj',title:'개발 소문',text:'{nb}{nb:이/가} 귀띔한다. "저쪽 들판에 길이 난대. 지금 사 두면 몇 년 뒤 값이 확 뛸 거야."',
   ch:[{t:'한 필지 사 둔다',fx:{run:()=>{const p=landAdd(R()<.5?'hill':'farm');const c=parcelVal(p);S.money-=c;S.chains.push({id:'l-rumor2',at:S.year+ri(3,6),subj:null,nb:null});return '땅을 샀다 ('+sgW(-c)+')'}}},
-      {t:'가진 땅을 지금 판다',fx:{run:()=>{if(!S.land)return '팔 땅이 없다';const p=landRemove();const v=parcelVal(p)*1.15;S.money+=v;return LAND_KINDS[p.kind].name+'을 소문 덕에 비싸게 팔았다 ('+sgW(v)+')'}}},
+      {t:'가진 땅을 지금 판다',fx:{run:()=>{if(!S.land)return '팔 땅이 없다';const p=landRemove();const v=parcelVal(p)*1.15;S.money+=v;return LAND_KINDS[p.kind].name+josa(LAND_KINDS[p.kind].name,'을/를')+' 소문 덕에 비싸게 팔았다 ('+sgW(v)+')'}}},
       {t:'소문은 소문일 뿐이다',fx:{}}]},
  {id:'l-rumor2',slot:'시대',chainOnly:true,major:true,title:'그 소문의 끝',text:'몇 년 전 들었던 개발 소문이 어떻게 됐는지 알려졌다.',
   ch:[{t:'결과를 듣는다',fx:{run:()=>{const r=R();const L=(S.lands||[]).filter(p=>S.year-p.since<=7);if(!L.length)return '그 땅은 이미 팔았다';
@@ -66,7 +66,7 @@ const LAND_CARDS=[
       {t:'다른 세입자를 찾는다',fx:{run:()=>{const v=bldVal()*.01;S.money-=v;return '중개 수수료를 내고 새 세입자를 들였다 ('+sgW(-v)+')'}}}]},
  {id:'l-tax',slot:'시대',rep:true,y:[2005,2075],cond:()=>S.land>=3,title:'땅 세금',text:'땅을 여러 필지 가진 집에 무거운 세금 고지서가 날아왔다.',
   ch:[{t:'낸다',fx:{run:()=>{const v=landTotal()*.012;S.money-=v;return '세금 '+sgW(-v)}}},
-      {t:'한 필지를 팔아 정리한다',fx:{run:()=>{const p=landRemove();const v=parcelVal(p)*.95;S.money+=v;return LAND_KINDS[p.kind].name+'을 팔았다 ('+sgW(v)+')'}}}]},
+      {t:'한 필지를 팔아 정리한다',fx:{run:()=>{const p=landRemove();const v=parcelVal(p)*.95;S.money+=v;return LAND_KINDS[p.kind].name+josa(LAND_KINDS[p.kind].name,'을/를')+' 팔았다 ('+sgW(v)+')'}}}]},
  {id:'l-sib',slot:'가족',awayOK:true,who:'sib',cond:()=>S.land>=2,y:[1960,2075],title:'땅 좀 나누자',text:'따로 사는 형제 {subj}{subj:이/가} 부모님 땅이니 한 필지는 자기 몫이라고 한다.',
   ch:[{t:'한 필지를 떼어 준다',fx:{aff:4,grudge:-3,run:()=>{const p=landRemove();return LAND_KINDS[p.kind].name+' 한 필지를 형제에게 넘겼다'}}},
       {t:'판 돈을 나눠 준다',fx:{aff:2,grudge:-1,run:()=>{const p=landRemove();const v=parcelVal(p)*.95;S.money+=v/2;return '땅을 팔아 절반을 나눠 주었다 ('+sgW(v/2)+' 남음)'}}},
@@ -75,9 +75,9 @@ const LAND_CARDS=[
   ch:[{t:'빌린다',fx:{run:()=>{const v=landTotal()*.35;S.money+=v;S.landDebt=(S.landDebt||0)+v;S.chains.push({id:'l-loan2',at:S.year+5,subj:null,nb:null});return '땅 담보로 '+wonY(v)+'을 빌렸다'}}},{t:'땅은 건드리지 않는다',fx:{}}]},
  {id:'l-loan2',slot:'집안',chainOnly:true,title:'담보 대출 만기',text:'땅 담보로 빌린 돈의 만기가 돌아왔다.',
   ch:[{t:'갚는다',fx:{run:()=>{const v=(S.landDebt||0)*1.35;S.money-=v;S.landDebt=0;return '이자까지 갚았다 ('+sgW(-v)+')'}}},
-      {t:'갚을 돈이 없으면 땅을 넘긴다',fx:{run:()=>{const v=(S.landDebt||0)*1.35;if(S.money>=v){S.money-=v;S.landDebt=0;return '다행히 갚았다 ('+sgW(-v)+')'}const p=landRemove();S.landDebt=0;return LAND_KINDS[p.kind].name+'을 은행에 넘겼다'}}}]},
+      {t:'갚을 돈이 없으면 땅을 넘긴다',fx:{run:()=>{const v=(S.landDebt||0)*1.35;if(S.money>=v){S.money-=v;S.landDebt=0;return '다행히 갚았다 ('+sgW(-v)+')'}const p=landRemove();S.landDebt=0;return LAND_KINDS[p.kind].name+josa(LAND_KINDS[p.kind].name,'을/를')+' 은행에 넘겼다'}}}]},
  {id:'l-garden',slot:'동네',y:[2035,2075],cond:()=>(S.lands||[]).some(p=>!p.bld),nb:'any',title:'빈 땅의 쓰임',text:'놀고 있는 우리 땅을 동네 텃밭이나 쉼터로 쓰자는 이야기가 나왔다.',
   ch:[{t:'동네에 내준다',fx:{jAll:2,run:()=>{routeAdd('jeong',4);routeAdd('root',1);return '빈 땅이 동네 텃밭이 됐다'}}},{t:'세를 받고 빌려준다',fx:{run:()=>{const p=S.lands.find(p=>!p.bld);p.lease=true;return '땅을 세놓았다'}}},{t:'그냥 둔다',fx:{}}]},
- {id:'l-inherit',slot:'시대',rep:true,y:[1953,2075],cond:()=>R()<.25,title:'싸게 나온 땅',text:'급하게 이사 가는 집이 땅을 싸게 내놓았다.',
+ {id:'l-inherit',slot:'시대',y:[1953,2110],cond:()=>R()<.5,title:'싸게 나온 땅',text:'급하게 이사 가는 집이 땅을 싸게 내놓았다.',
   ch:[{t:'산다',fx:{run:()=>{const p=landAdd();const c=parcelVal(p)*.8;if(S.money<c){landRemove(S.lands.length-1);return '돈이 모자라 사지 못했다'}S.money-=c;return LAND_KINDS[p.kind].name+' 한 필지를 싸게 샀다 ('+sgW(-c)+')'}}},{t:'남의 급한 사정을 이용하지 않는다',fx:{gap:{f:-1}}}]}
 ];
