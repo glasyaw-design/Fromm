@@ -386,7 +386,7 @@ function seollalView(){
 function inheritView(){
   migrate();const I=S.inh;const kids=inheritKids();const from=S.genPass&&S.genPass.from?P(S.genPass.from):null;
   const val={};for(const c of kids)val[c.id]=0;for(const a of I.assets){if(a.jesa)continue;const L=I.asg[a.k]||[];for(const id of L)val[id]+=a.v/L.length}
-  const tot=Object.values(val).reduce((x,y)=>x+y,0);const PR=inhPredict();
+  const tot=Object.values(val).reduce((x,y)=>x+y,0);const PR=inhPredict();const EX=inhExpect(kids,PR.all||1);
   return `<div class="stage-head"><h2>장례와 유산</h2><span class="lbl">${S.year}년 · ${S.curGen}세대를 보내며</span></div>
   <div class="banner">${from?esc(from.name)+josa(from.name,'이/가')+' 세상을 떠나 '+S.curGen+'세대가 모두 졌다. ':''}조문객: ${esc(mourners())}.</div>
   <div class="panel">
@@ -395,8 +395,8 @@ function inheritView(){
      ${kids.map(c=>`<button aria-pressed="${L.includes(c.id)}" ${I.done?'disabled':''} data-act="inhSet" data-a="${a.k}" data-b="${c.id}">${esc(c.name)}<small>${age(c)}세${c.status!=='home'?' · '+esc(c.away?c.away.why:''):''}</small></button>`).join('')}
      ${!a.jesa&&kids.length>1?`<button ${I.done?'disabled':''} data-act="inhSet" data-a="${a.k}" data-b="all">모두 똑같이<small>${kids.length}명</small></button>`:''}
    </div></div>`}).join('')}</div>
-   <div class="tbl" style="margin-top:12px"><table><thead><tr><th>자녀</th><th class="r">받을 몫</th><th class="r">비율</th><th>예상</th></tr></thead><tbody>${kids.map(c=>`<tr><td>${esc(c.name)}${c.grudge>=4?' <span class="chip warn">표정이 어둡다</span>':''}</td><td class="r">${wonY(val[c.id])}</td><td class="r">${tot?Math.round(val[c.id]/tot*100):0}%</td><td>${(()=>{const q=PR.by[c.id];return q?`<span class="chip ${q.t==='화목'?'ok':q.t==='서운함'?'':'warn'}">${q.t}</span>${q.take?' <span class="small">'+wonY(q.take)+' 들고 나감</span>':''}`:''})()}</td></tr>`).join('')}</tbody></table></div>
-   ${I.done?'':`<div class="banner small" style="margin-top:8px">이대로 나누면 집에 남는 재산 <b>${wonY(PR.stay)}</b> / 전체 ${wonY(PR.all)}${PR.out>0?` · 갈라서는 자녀가 <b style="color:var(--warn)">${wonY(PR.out)}</b>을 들고 나간다`:''}. 집과 가게는 남는다. 예상은 지금 마음 기준이다.</div>`}
+   <div class="tbl" style="margin-top:12px"><table><thead><tr><th>자녀</th><th class="r">받을 몫</th><th class="r">비율</th><th class="r">기대</th><th>예상</th></tr></thead><tbody>${kids.map(c=>`<tr><td>${esc(c.name)}${c.grudge>=4?' <span class="chip warn">표정이 어둡다</span>':''}</td><td class="r">${wonY(val[c.id])}</td><td class="r">${tot?Math.round(val[c.id]/tot*100):0}%</td><td class="r muted">${Math.round(EX[c.id]/(PR.all||1)*100)}%</td><td>${(()=>{const q=PR.by[c.id];return q?`<span class="chip ${q.t==='화목'?'ok':q.t==='서운함'?'':'warn'}">${q.t}</span>${q.take?' <span class="small">'+wonY(q.take)+' 들고 나감</span>':''}`:''})()}</td></tr>`).join('')}</tbody></table></div>
+   ${I.done?'':`<div class="banner small" style="margin-top:8px">이대로 나누면 집에 남는 재산 <b>${wonY(PR.stay)}</b> / 전체 ${wonY(PR.all)}${PR.out>0?` · 갈라서는 자녀가 <b style="color:var(--warn)">${wonY(PR.out)}</b>을 들고 나간다`:''}. 집과 가게는 남는다. '기대'는 그 자식이 바라는 몫이다. ${S.year<1990?'이 시절엔 집에 남아 부모를 모시는 자식이 대부분을 받고, 시집간 딸은 거의 바라지 않는다.':S.year<2010?'집에 남은 자식이 조금 더 받는 게 보통이지만, 시집간 딸도 몫을 바라기 시작했다.':'요즘은 다들 똑같이 나누기를 바란다.'} 이미 따로 사는 자식은 서운해도 원한만 쌓일 뿐 재산을 들고 나가지는 않는다.</div>`}
    ${I.done?`<div class="out" style="margin-top:14px"><b>자녀들의 반응</b><ul>${I.res.map(r=>{const c=P(r.id);return `<li><b>${esc(c.name)}</b> (${r.share}%) — ${r.tier}: ${esc(r.txt)}</li>`}).join('')}</ul></div>
      <div class="actions"><button class="btn go" data-act="inhNext">다음</button></div>`
    :`<div class="actions"><button class="btn go" data-act="inhConfirm" ${I.assets.every(a=>(I.asg[a.k]||[]).length)?'':'disabled'}>이대로 나눈다</button></div>`}

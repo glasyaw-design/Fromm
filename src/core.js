@@ -1336,13 +1336,26 @@ function migrate(){
     I.assets=landA.concat(nonLand);const na={};for(const a of nonLand)na[a.k]=oldAsg[a.k]||[];for(const a of landA)na[a.k]=firstLandAsg.slice();I.asg=na;
   }
 }
-function inhScore(c,val,fair,mx,jesaId){let sc=c.grudge-Math.floor(c.aff/3)+(val[c.id]<fair*.25?3:val[c.id]<fair*.6?1:0)+(mx>0&&val[c.id]<mx*.4?1:0);if(jesaId===c.id&&val[c.id]<fair)sc+=1;
+/* 시대마다 자식들이 기대하는 몫이 다르다.
+   옛날엔 집에 남아 부모를 모시고 제사를 맡는 자식이 대부분을 받고, 시집간 딸은 거의 기대하지 않았다.
+   집 장만을 도와준 자식은 이미 몫을 받은 셈이다. */
+function inhWeight(c){const y=S.year;let w=1;
+  const home=c.status==='home';const out=c.away&&['출가','분가'].includes(c.away.why);
+  if(home)w=y<1990?2.2:y<2010?1.5:1.15;
+  if(c.away&&c.away.why==='출가')w=y<1980?.25:y<1995?.45:y<2010?.75:1;
+  else if(out&&c.sex==='f'&&y<1990)w=.5;
+  if(c.f&&c.f.housed)w*=.55;
+  return w}
+function inhExpect(kids,tot){const ws=kids.map(inhWeight);const sw=ws.reduce((a,b)=>a+b,0)||1;const e={};kids.forEach((c,i)=>e[c.id]=tot*ws[i]/sw);return e}
+function inhScore(c,val,fair,mx,jesaId){if(typeof fair==='object')fair=fair[c.id];let pen=val[c.id]<fair*.25?3:val[c.id]<fair*.6?1:0;if(c.away&&c.away.why==='출가'&&S.year<1995)pen=Math.min(pen,1);let sc=c.grudge-Math.floor(c.aff/3)+pen+(mx>0&&val[c.id]<mx*.4&&fair>mx*.3?1:0);if(jesaId===c.id&&val[c.id]<fair)sc+=1;
   /* 몫을 많이 받은 자식은 집을 떠나지 않는다 */
-  if(val[c.id]>=fair*1.4)sc=Math.min(sc-2,4);return sc}
+  if(val[c.id]>=fair*1.4)sc=Math.min(sc-2,4);
+  /* 이미 따로 사는 자식은 '갈라섬'이 아니라 서운함으로 그친다(원한만 쌓인다) — 정말 크게 틀어질 때만 의절 */
+  if(c.status!=='home'&&sc>4&&sc<=7)sc=4;return sc}
 /* 이대로 나누면 어떻게 될지 미리 본다: 갈라서는 자녀는 제가 받은 현금·땅을 들고 나간다 */
 function inhPredict(){const I=S.inh;const kids=inheritKids();const val={};for(const c of kids)val[c.id]=0;
   for(const a of I.assets){if(a.jesa)continue;const L=I.asg[a.k]||[];for(const id of L)val[id]+=a.v/L.length}
-  const tot=Object.values(val).reduce((x,y)=>x+y,0)||1;const fair=tot/kids.length;const mx=Math.max(0,...Object.values(val));const jesaId=(I.asg.jesa||[])[0];
+  const tot=Object.values(val).reduce((x,y)=>x+y,0)||1;const fair=inhExpect(kids,tot);const mx=Math.max(0,...Object.values(val));const jesaId=(I.asg.jesa||[])[0];
   let out=0;const by={};for(const c of kids){const sc=inhScore(c,val,fair,mx,jesaId);const t=sc<=0?'화목':sc<=4?'서운함':sc<=7?'갈라섬':'의절';
     let take=0;if(t==='갈라섬'||t==='의절')for(const a of I.assets){const L=I.asg[a.k]||[];if(L.includes(c.id)&&(a.cash||a.land))take+=a.v/L.length}
     out+=take;by[c.id]={t,take}}
@@ -1352,7 +1365,7 @@ function inhConfirm(){
   const I=S.inh;const kids=inheritKids();if(I.assets.some(a=>!(I.asg[a.k]||[]).length))return;
   const val={};for(const c of kids)val[c.id]=0;
   for(const a of I.assets){if(a.jesa)continue;const L=I.asg[a.k];for(const id of L)val[id]+=a.v/L.length}
-  const tot=Object.values(val).reduce((x,y)=>x+y,0)||1;const fair=tot/kids.length;const mx=Math.max(...Object.values(val));
+  const tot=Object.values(val).reduce((x,y)=>x+y,0)||1;const fair=inhExpect(kids,tot);const mx=Math.max(...Object.values(val));
   const jesaId=(I.asg.jesa||[])[0];
   for(const c of kids){
     const share=val[c.id]/tot;
