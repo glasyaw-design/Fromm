@@ -1,0 +1,13 @@
+{
+  "name": "족보 없는 집",
+  "short_name": "족보 없는 집",
+  "description": "한국 현대사를 한 집안의 눈으로 건너가는 가문 경영 게임",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#efe6cf",
+  "theme_color": "#efe6cf",
+  "lang": "ko",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
